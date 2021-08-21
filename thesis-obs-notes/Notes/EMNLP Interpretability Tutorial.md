@@ -39,3 +39,37 @@ See: [[Ribeiro et al. 2016]], [[Feng et al. 2018]], [[Wallace et al. 2019]]
 ### [[Perturbations]]
 - [[Perturbations#Input reduction]]
 - [[Adversarial perturbations]]
+
+## What Decision Rules Led to a Prediction?
+- Input interpretations are local 
+- *if pattern x holds, model typically makes prediction y*
+- rather find small rules which are not just based on the a large part of the input
+
+### [[Anchors]]
+### [[Universal Adversarial Triggers]]
+
+- can identify global bugs (i.e. annotation artifacts)
+- hard to find broad rules, s.t. we might only find highly specific rules which are not clear what action to take
+
+See: [[Lakkaraju et al. 2017]] [[Guidotti et al. 2018]] [[Tan et al. 2018]] [[Sushil et al. 2018]] [[Ribeiro et al. 2018]] [[Li et al. 2019]]
+
+## Which Training Examples Caused a Prediction?
+
+- instead of just explaining input, we look from the point of view of the model to try to explain why a model predicted something given input $x$
+- use [[Influence functions]] to see which training examples where the most influential for the prediction
+- shows *where* the model found patterns, such that we can take actions based on what was found
+- can be uninterpretable, computationally expensive
+- requires approximations
+- influential points too specific to choice of pretrained models?
+- ==very promising area==
+
+See: [[Yeh et al. 2018]] [[Han et al. 2020]] [[Koh and Liang 2017]] [[Garima et al. 2020]] [[Basu et al. 2020]]
+
+## Implementation
+[[Video] Implementation starts from here](https://youtu.be/gprIzglUW1s?t=10738)
+
+## Q&A
+- Attention vs [[Saliency Maps]], (Gradient based methods vs attention based methods, since attention is also creating a [[Saliency Maps]]) see: [[Attention is not Explanation]] & [[Attention is not not Explanation]]
+- Why trust a model which generates a rational? -> Learn more about the context, but more likely no causality. Some works have been using rationals which have been created internally as an additional input into the next layer.
+- how to test high bias -> put specific sentences in another testing dataset
+- how to distinguish triggers vs effective features?
