@@ -63,7 +63,7 @@ See: [[Lakkaraju et al. 2017]] [[Guidotti et al. 2018]] [[Tan et al. 2018]] [[Su
 - influential points too specific to choice of pretrained models?
 - ==very promising area==
 
-See: [[Yeh et al. 2018]] [[Han et al. 2020]] [[Koh and Liang 2017]] [[Garima et al. 2020]] [[Basu et al. 2020]]
+- See: [[Yeh et al. 2018]] [[Han et al. 2020]] [[Koh and Liang 2017]] [[Garima et al. 2020]] [[Basu et al. 2020]]
 
 ## Implementation
 [[Video] Implementation starts from here](https://youtu.be/gprIzglUW1s?t=10738)
