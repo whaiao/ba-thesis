@@ -19,7 +19,7 @@ Some links to navigate the thesis and note-taking repository:
 
 *** 
 ## TODO:
-- [ ] Setup notetaking structure
+- [x] Setup notetaking structure
 - [ ] Setup Overleaf
 - [ ] Create initial survey: "Which role plays empathy in nowadays interaction with smart agents?"
 - [ ] Request model code to reproduce experiment
