@@ -1,0 +1,102 @@
+{
+  "main": {
+    "id": "bb9db160e268ebe4",
+    "type": "split",
+    "children": [
+      {
+        "id": "186fab3a2254276b",
+        "type": "leaf",
+        "state": {
+          "type": "markdown",
+          "state": {
+            "file": "Paper Notes/Ribeiro et al. 2020.md",
+            "mode": "preview"
+          }
+        }
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "f3e07d53932987f0",
+    "type": "split",
+    "children": [
+      {
+        "id": "792a2a2f8db7841d",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "8927ae1d925a055d",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {}
+            }
+          },
+          {
+            "id": "61bba05eaf68a363",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": true,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": true,
+                "sortOrder": "alphabetical"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "5a0827892abee4f1",
+    "type": "split",
+    "children": [
+      {
+        "id": "a115d07b492b6cd6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "405dfc61f396fe5b",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Paper Notes/Ribeiro et al. 2020.md",
+                "collapseAll": true,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": false
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "active": "186fab3a2254276b",
+  "lastOpenFiles": [
+    "Paper Notes/Ribeiro et al. 2020.md",
+    "Notes/Scratchpad.md",
+    "Paper Notes/Ribeiro et al. 2016.md",
+    "Paper Notes/Belinkov and Bisk 2018.md",
+    "Paper Notes/Wallace et al. 2019.md",
+    "Paper Notes/Yeh et al. 2018.md",
+    "Ribeiro et al. 2020.md",
+    "Untitled.md",
+    "Resources/Papers/Modeling_Empathy.pdf",
+    "Resources/Papers/Modeling Human Motives Emotions from Narratives.pdf"
+  ]
+}
