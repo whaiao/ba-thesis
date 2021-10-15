@@ -1,6 +1,6 @@
 {
   "vimMode": true,
-  "attachmentFolderPath": "Readings",
+  "attachmentFolderPath": "000 Resources",
   "pdfExportSettings": {
     "pageSize": "A4",
     "landscape": false,
@@ -9,5 +9,6 @@
   },
   "promptDelete": false,
   "spellcheck": true,
-  "alwaysUpdateLinks": true
+  "alwaysUpdateLinks": true,
+  "newFileLocation": "current"
 }

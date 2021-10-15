@@ -1,0 +1,17 @@
+{
+  "indexPrefix": "Summary of ",
+  "indexItemStyle": "pureLink",
+  "indexTagValue": "MOC",
+  "indexTagBoolean": true,
+  "indexTagSeparator": ", ",
+  "indexTagLabel": "tags",
+  "cleanPathBoolean": true,
+  "folderEmoji": ":card_index_dividers:",
+  "fileEmoji": ":page_facing_up:",
+  "enableEmojis": false,
+  "foldersExcluded": "./000 Resources,",
+  "foldersIncluded": "",
+  "sortOrder": "asc",
+  "addSquareBrackets": true,
+  "embedSubIndex": false
+}
