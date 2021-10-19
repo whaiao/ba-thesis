@@ -2,6 +2,7 @@
  [[000 Resources/Summary of 000 Resources|Summary of 000 Resources]]
  [[010 Papers/Summary of 010 Papers|Summary of 010 Papers]]
  [[020 Tutorials/Summary of 020 Tutorials|Summary of 020 Tutorials]]
+ [[030 Datasets/Summary of 030 Datasets|Summary of 030 Datasets]]
  [[090 Daily Notes/Summary of 090 Daily Notes|Summary of 090 Daily Notes]]
  [[readme|readme]]
  [[Wiki/Summary of Wiki|Summary of Wiki]]

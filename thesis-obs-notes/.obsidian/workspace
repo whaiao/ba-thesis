@@ -4,7 +4,7 @@
     "type": "split",
     "children": [
       {
-        "id": "c15f4b9286dd7afa",
+        "id": "8e6c83feb9e7ed4b",
         "type": "leaf",
         "state": {
           "type": "empty",
@@ -36,7 +36,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "tag:#permanent",
+                "query": "tag:#explanability",
                 "matchingCase": true,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -107,20 +107,19 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
-  "active": "c15f4b9286dd7afa",
+  "active": "8e6c83feb9e7ed4b",
   "lastOpenFiles": [
-    "@10.1145_3442381.md",
-    "@10.18653_v1_d16-1140.md",
+    "030 Datasets/0311 Social IQa, sap2019.md",
     "000 Resources/001 Templates/001 1 Paper.md",
-    "000 Resources/001 Templates/001 2 Zettel.md",
-    "000 Resources/001 Templates/Summary of 001 Templates.md",
-    "090 Daily Notes.md",
-    "Untitled.md",
-    "000 Resources/Summary of 000 Resources.md",
-    "000 Resources/001 Templates/001 2 Zettel Template.md",
-    "000 Resources/001 Templates/001 1 Paper Template.md"
+    "@10.1145_3442381.md",
+    "030 Datasets/0311a  Choice of Plausible Alternatives, roemmele2011.md",
+    "030 Datasets/0311b Winograd Schema, levesque2011.md",
+    "030 Datasets/031 Commonsense Knowledge.md",
+    "020 Tutorials/Scratchpad.md",
+    "020 Tutorials/Interpretability.md",
+    "020 Tutorials/0211 EMNLP2020 Interpretability.md",
+    "020 Tutorials/021 Interpretability & Explainability.md"
   ]
 }

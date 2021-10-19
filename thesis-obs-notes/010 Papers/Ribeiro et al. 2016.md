@@ -28,4 +28,4 @@ $z' \in \mathcal{Z}$, [[Perturbations]] sample from $x'$
 ![[LIME Example.png]]
 
 > Mentioned in:
-> [[EMNLP Interpretability Tutorial]]
+> [[0211 EMNLP2020 Interpretability]]

@@ -13,4 +13,4 @@
 		- Input Reduction [[Feng et al. 2018]] by removing as many words as possible, to find the one causing the highest confidence in the prediction
 		
 > Mentioned in:
-> [[EMNLP Interpretability Tutorial]]
+> [[0211 EMNLP2020 Interpretability]]
