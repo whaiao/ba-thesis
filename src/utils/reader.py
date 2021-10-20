@@ -15,8 +15,12 @@ def read_jsonlines(filepath: str) -> List[Mapping[Any, Any]]:
         return [i for i in reader(f)]
 
 
-def read_csv(filepath: str) -> pd.DataFrame:
+def read_csv(filepath: str, seperator: str = ',') -> pd.DataFrame:
     """
-    Reads CSV file into dataframe
+    Reads character limited file into dataframe
+
+    Args:
+        filepath: Path to file
+        seperator: character used to seperate columns
     """
-    return pd.read_csv(filepath, encoding='utf8')
+    return pd.read_csv(filepath, encoding='utf8', sep=seperator)
