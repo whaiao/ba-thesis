@@ -27,7 +27,7 @@ def beam_search(model: TransformerModel, size: int, encoder_output: Jndarray,
 
     t_vocab_size = model.decoder.output_size
     transformer = isinstance(model.decoder, TransformerDecoder)
-    batch_size = src_mask.shape[0]
+    batch_size = s_mask.shape[0]
     t_mask = None
 
 
