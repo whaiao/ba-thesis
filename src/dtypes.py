@@ -1,5 +1,6 @@
 from typing import *  # pylint-ignore-wildcard-import
 import jax.numpy as jnp
+from jax.random import PRNGKey
 import haiku as hk
 
 
@@ -21,6 +22,10 @@ class Session(NamedTuple):
     cfg: Mapping[str, Any]
 
 
+ModuleName = Optional[str]
+Data = Mapping[str, jnp.ndarray]
 Sentence = List[str]
 Beam = Tuple[jnp.ndarray, jnp.ndarray]
 Jndarray = jnp.ndarray
+RNGKey = PRNGKey
+
