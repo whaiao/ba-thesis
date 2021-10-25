@@ -16,6 +16,11 @@ class TransformerModel(NamedTuple):
     encoder: TransformerEncoder
     decoder: TransformerDecoder
 
+class Session(NamedTuple):
+    name: str
+    cfg: Mapping[str, Any]
+
+
 Sentence = List[str]
 Beam = Tuple[jnp.ndarray, jnp.ndarray]
 Jndarray = jnp.ndarray
