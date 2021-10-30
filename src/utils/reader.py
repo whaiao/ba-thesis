@@ -3,9 +3,11 @@
 Data reading module
 """
 
-from json_lines import reader
 from typing import Any, List, Mapping
+
 import pandas as pd
+from json_lines import reader
+
 
 def read_jsonlines(filepath: str) -> List[Mapping[Any, Any]]:
     """

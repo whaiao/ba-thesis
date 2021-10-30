@@ -1,9 +1,10 @@
-from .dtypes import *
-
 import functools
+
 import jax
-import optax
 import numpy as np
+import optax
+
+from .dtypes import *
 
 
 class Trainer:

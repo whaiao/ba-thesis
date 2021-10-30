@@ -1,5 +1,4 @@
 from .dtypes import *
-import jax.numpy as jnp
 
 
 def beam_search(model: TransformerModel, size: int, encoder_output: Jndarray,

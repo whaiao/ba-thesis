@@ -2,11 +2,10 @@
 """
 All functions to process data go here
 """
+from glob import glob
 from string import punctuation
-from typing import List
 
 import pandas as pd
-from glob import glob
 from tqdm import tqdm
 
 from dtypes import *
@@ -22,6 +21,7 @@ def jsonl2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):
         data = read_jsonlines(file)
         pd.DataFrame(data).to_csv(new_filename, encoding='utf8', sep='\t')
 
+
 def csv2tsv(datapath: str = 'data/', saveto: str  = 'data/processed/'):
     files = glob(f'{datapath}**/*.csv')
     for file in tqdm(files):
@@ -35,6 +35,3 @@ def preprocessing(s: Sentence) -> Sentence:
     transdict = str.maketrans('', '', punctuation)
     tokens = [w.translate(transdict) for w in s]
     return tokens
-
-
-

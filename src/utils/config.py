@@ -3,9 +3,11 @@
 """
 Configuration handling for experiments
 """
-import yaml
 from pathlib import Path
 from typing import Union, Mapping
+
+import yaml
+
 
 def get_config(yaml_filepath: str) -> Mapping[str, Union[str, float, int]]:
     """

@@ -1,11 +1,11 @@
-from typing import Mapping
-
+import haiku as hk
 import jax
 import jax.numpy as jnp
-import haiku as hk
-from .dtypes import PRNGKey, Data
 
-def lm_with_mask_loss_fn(forward_fn,
+from .dtypes import PRNGKey, Data, Callable
+
+
+def lm_with_mask_loss_fn(forward_fn: Callable,
                          vocab_size: int,
                          params: hk.Params,
                          rng: PRNGKey,

@@ -1,12 +1,11 @@
-from .transformer import *
+import haiku as hk
+import jax
+import optax as O
+
 from .loss import *
 from .train import *
-from .dtypes import *
+from .transformer import *
 from .utils.config import get_config
-
-import haiku as hk
-import optax as O
-import jax
 
 # TODO: Read yaml config here
 cfg = get_config(None)

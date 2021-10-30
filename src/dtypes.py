@@ -1,7 +1,8 @@
 from typing import *  # pylint-ignore-wildcard-import
+
+import haiku as hk
 import jax.numpy as jnp
 from jax.random import PRNGKey
-import haiku as hk
 
 
 class TransformerEncoder(NamedTuple):
@@ -22,6 +23,7 @@ class Session(NamedTuple):
     cfg: Mapping[str, Any]
 
 
+Function = Callable
 ModuleName = Optional[str]
 Data = Mapping[str, jnp.ndarray]
 Sentence = List[str]

@@ -1,9 +1,10 @@
-from .dtypes import *
-
+import haiku as hk
 import jax
 import jax.numpy as jnp
-import haiku as hk
 import numpy as np
+
+from .dtypes import Data, Optional, Tuple
+
 
 class SelfAttention(hk.MultiHeadAttention):
     def __call__(self,
@@ -29,11 +30,12 @@ class Linear(hk.Module):
         self._widening_factor = widening_factor
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        hiddens = x.shape[-1]
+        hidden = x.shape[-1]
         init = hk.initializers.VarianceScaling(self._init_scale)
-        x = hk.Linear(self._widening_factor*hiddens, w_init=init)(x)
+        x = hk.Linear(self._widening_factor*hidden, w_init=init)(x)
         x = jax.nn.gelu(x)
-        return hk.Linear(hiddens, w_init=init)(x)
+        return hk.Linear(hidden, w_init=init)(x)
+
 
 def layer_norm(x: jnp.ndarray, name: Optional[str] = None) -> jnp.ndarray:
     return hk.LayerNorm(axis=-1,
@@ -43,11 +45,12 @@ def layer_norm(x: jnp.ndarray, name: Optional[str] = None) -> jnp.ndarray:
 
 
 class Transformer(hk.Module):
-
+    """Transformer stack"""
     def __init__(self, nheads: int,
                  nlayers: int,
                  dropout_rate: float,
                  name: Optional[str] = None):
+
         super().__init__(name=name)
         self._nlayers = nlayers
         self._nheads = nheads
@@ -79,23 +82,23 @@ class Transformer(hk.Module):
         return h
 
 
-def embeddings(data: Mapping[str, jnp.ndarray], vocab_size: int) -> jnp.ndarray:
-    tokens = data  # TODO: define input here
-    input_mask = jnp.greater(tokens, 0)
+def embeddings(data: Data, d_model: int, vocab_size: int) -> Tuple[jnp.ndarray]:
+    tokens = data['obs']  # TODO: define input here
+    input_mask: jnp.ndarray = jnp.greater(tokens, 0)
     seq_len = tokens.shape[1]
 
     embed_init = hk.initializers.TruncatedNormal(stddev=.02)
     token_embedding_map = hk.Embed(vocab_size, d_model, w_init=embed_init)
     token_embs = token_embedding_map(tokens)
     positional_embeddings = hk.get_parameter('pos_embs', [seq_len, d_model], init=embed_init)
-    input_embeddings = token_embs + positional_embeddings
+    input_embeddings: jnp.ndarray = token_embs + positional_embeddings
     return input_embeddings, input_mask
+
 
 def build_transformer_forward_fn(vocab_size: int, d_model: int, nheads: int, nlayers: int, dropout_rate: float):
     def forward_fn(data: Data, is_training: bool = True) -> jnp.ndarray:
-        input_embeddings, input_mask = embeddings(data, vocab_size)
+        input_embeddings, input_mask = embeddings(data, d_model, vocab_size)
         transformer = Transformer(nheads=nheads, nlayers=nlayers, dropout_rate=dropout_rate)
         output_embeddings = transformer(input_embeddings, input_mask, is_training)
         return hk.Linear(vocab_size)(output_embeddings)
-
     return forward_fn
