@@ -1,5 +1,3 @@
-import haiku as hk
-import jax
 import optax as O
 
 from .loss import *
@@ -9,6 +7,7 @@ from .utils.config import get_config
 
 # TODO: Read yaml config here
 cfg = get_config(None)
+
 
 def main():
     # TODO: load data here

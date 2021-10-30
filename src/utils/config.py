@@ -22,4 +22,3 @@ def get_config(yaml_filepath: str) -> Mapping[str, Union[str, float, int]]:
     path = Path(yaml_filepath)
     with open(path.resolve(), 'r') as f:
         return yaml.safe_load(f)
-

@@ -22,7 +22,7 @@ def jsonl2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):
         pd.DataFrame(data).to_csv(new_filename, encoding='utf8', sep='\t')
 
 
-def csv2tsv(datapath: str = 'data/', saveto: str  = 'data/processed/'):
+def csv2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):
     files = glob(f'{datapath}**/*.csv')
     for file in tqdm(files):
         filename = file.split('/')[-1].split('.')[0]

@@ -47,4 +47,3 @@ class Trainer:
         }
 
         return new_state, metrics
-

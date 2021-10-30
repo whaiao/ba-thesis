@@ -12,4 +12,3 @@ def run_session(session: Session, log_dict: Mapping[str, Jndarray], entity: str 
     if session.cfg['session_type'] == 'torch':
         assert model is not None, 'Model cannot be empty if you are using wandb with PyTorch'
         wandb.watch(model)
-
