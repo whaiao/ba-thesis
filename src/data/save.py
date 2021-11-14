@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from ..dtypes import *
-from ..utils import read_jsonlines, read_csv
+from ..data import read_jsonlines, read_csv
 
 
 def jsonl2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):

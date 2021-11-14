@@ -45,6 +45,15 @@ class Linear(hk.Module):
 
 
 def layer_norm(x: jnp.ndarray, name: Optional[str] = None) -> jnp.ndarray:
+    """Layer normalization
+
+    Args:
+        x: hidden units
+        name: name of layer
+
+    Returns:
+        normalized layer units
+    """
     return hk.LayerNorm(axis=-1,
                         create_scale=True,
                         create_offset=True,

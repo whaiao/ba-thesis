@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import List, Union
 
+import datasets
 import numpy as np
 import jax.numpy as jnp
 import torch
@@ -16,6 +17,10 @@ NumpyType = np.dtype
 JaxType = jnp.dtype
 Datatypes = Union[TorchType, NumpyType, JaxType]
 
+
+HF_DS = ['empathetic-dialogues', 'daily-dialogue']
+
+
 class Data(namedtuple):
     train: Union[TorchType, NumpyType, JaxType]
     valid: Union[TorchType, NumpyType, JaxType]
@@ -23,7 +28,6 @@ class Data(namedtuple):
 
 
 class Dataset(ABC):
-
     @property
     @abstractmethod
     def headers(self) -> List[str]:
@@ -32,20 +36,21 @@ class Dataset(ABC):
     @property
     @abstractmethod
     def train(self):
-        return self.train
+        return self._train
 
     @property
     @abstractmethod
     def valid(self):
-        return self.valid
+        return self._valid
 
     @property
     @abstractmethod
     def test(self):
-        return self.test
+        return self._test
 
+    @classmethod
     @abstractmethod
-    def load(self, load_from: Union[None, str]):
+    def load(self, name: Union[None, str]):
         pass
 
     # @abstractmethod
@@ -68,10 +73,14 @@ class Dataset(ABC):
             raise ValueError(f'{dtype} is not supported.')
 
 
-class EmpatheticDialogues(Dataset):
-    def __init__(self):
-        self.data = load_dataset('empathetic_dialogues')
-        self.train, self.valid, self.test = [self.data[dataset] for dataset in self.data.keys()]
+class HuggingfaceDataset(Dataset):
+    def __init__(self, data: datasets.Dataset):
+        self.data = data
+        self._train, self._valid, self._test = [self.data[dataset] for dataset in self.data.keys()]
+
+    @classmethod
+    def load(cls, name: str):
+        return cls(data=load_dataset(name))
 
     @train.setter
     def train(self, value):
@@ -84,3 +93,11 @@ class EmpatheticDialogues(Dataset):
     @test.setter
     def test(self, value):
         self._test = value
+
+    @property
+    def headers(self) -> List[str]:
+        return self._train[0].keys()
+
+
+for n, d in zip([ed, dd], HF_DS):
+    n = HuggingfaceDataset.load(name=d)
