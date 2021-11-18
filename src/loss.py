@@ -1,8 +1,11 @@
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import jax.random as random
 
-from .dtypes import PRNGKey, Data, Callable
+from .dtypes import Data, Callable
+
+PRNGKey = random.PRNGKey
 
 
 def lm_with_mask_loss_fn(forward_fn: Callable,
