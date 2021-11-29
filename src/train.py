@@ -1,5 +1,9 @@
 import functools
 
+import torch
+import torch.nn as nn
+import torch.optimizer as optim
+
 import jax
 import numpy as np
 import optax
@@ -7,7 +11,7 @@ import optax
 from .dtypes import *
 
 
-class Trainer:
+class JAXTrainer:
     def __init__(self, net_init, loss_fn, optimizer: optax.GradientTransformation):
         self._net_init = net_init
         self._loss_fn = loss_fn
@@ -47,3 +51,18 @@ class Trainer:
         }
 
         return new_state, metrics
+
+
+class TorchTrainer:
+    def __init__(self, model: nn.Module, optimizer, data, cfg: dict):
+        self.model = model(**cfg)
+        self.optim = optimizer()
+        self.data = data
+
+    def train(self):
+        self.model.train()
+        pass
+
+    def eval(self):
+        self.model.eval()
+        pass

@@ -8,7 +8,7 @@ from typing import List, Union
 import datasets
 import numpy as np
 import jax.numpy as jnp
-import torch
+import torch.utils.data as torchdata
 
 from datasets import load_dataset
 
@@ -16,15 +16,6 @@ TorchType = torch.dtype
 NumpyType = np.dtype
 JaxType = jnp.dtype
 Datatypes = Union[TorchType, NumpyType, JaxType]
-
-
-HF_DS = ['empathetic-dialogues', 'daily-dialogue']
-
-
-class Data(namedtuple):
-    train: Union[TorchType, NumpyType, JaxType]
-    valid: Union[TorchType, NumpyType, JaxType]
-    test: Union[TorchType, NumpyType, JaxType]
 
 
 class Dataset(ABC):
@@ -62,7 +53,7 @@ class Dataset(ABC):
         pass
 
     @abstractmethod
-    def prepare_tensors(self, tensor_type: str, dtype: Datatypes) -> Data:
+    def prepare_tensors(self, tensor_type: str, dtype: Datatypes):
         if tensor_type == 'torch':
             return (torch.tensor(self.train, dtype), torch.tensor(self.valid, dtype), torch.tensor(self.test, dtype))
         elif tensor_type == 'numpy':
@@ -72,32 +63,3 @@ class Dataset(ABC):
         else:
             raise ValueError(f'{dtype} is not supported.')
 
-
-class HuggingfaceDataset(Dataset):
-    def __init__(self, data: datasets.Dataset):
-        self.data = data
-        self._train, self._valid, self._test = [self.data[dataset] for dataset in self.data.keys()]
-
-    @classmethod
-    def load(cls, name: str):
-        return cls(data=load_dataset(name))
-
-    @train.setter
-    def train(self, value):
-        self._train = value
-
-    @valid.setter
-    def valid(self, value):
-        self._valid = value
-
-    @test.setter
-    def test(self, value):
-        self._test = value
-
-    @property
-    def headers(self) -> List[str]:
-        return self._train[0].keys()
-
-
-for n, d in zip([ed, dd], HF_DS):
-    n = HuggingfaceDataset.load(name=d)

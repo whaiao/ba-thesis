@@ -1,0 +1,2 @@
+SEPTOKEN = ' [SEP] '
+CLSTOKEN = '[CLS] '
