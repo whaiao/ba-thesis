@@ -1,2 +1,0 @@
-SEPTOKEN = ' [SEP] '
-CLSTOKEN = '[CLS] '
