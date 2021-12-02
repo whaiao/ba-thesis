@@ -102,5 +102,3 @@ def moral_stories(glob_path: str = './data/moral_stories_datasets/**/*.jsonl') -
     return (full_df, mapped_df)
 
 
-fdf, mdf = moral_stories()
-print(mdf.head())

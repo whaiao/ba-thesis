@@ -19,7 +19,7 @@ class JAXTrainer:
 
     @functools.partial(jax.jit, static_argnums=0)
     def init(self, master_rng, data: Data):
-        out_rng, init_rng = jax.random.split(master_rng)
+        out_rng, init_rng = jax.random.split(master_rng, 2)
         params = self._net_init(init_rng, data)
         opt_state = self._opt.init(params)
         out = {
