@@ -16,7 +16,7 @@ def load_atomic(path: str = 'data/processed/v4_atomic_all.tsv') -> pd.DataFrame:
     return pd.read_csv(path, sep='\t', encoding='utf8', index_col='Unnamed: 0')
 
 
-def create_action_dataset() -> pd.DataFrame:
+def create_action_dataset(n_workers: int = -1) -> pd.DataFrame:
     """Create dataset from `social chemistry` actions with `atomic` knowledge
 
     Returns:
@@ -30,17 +30,23 @@ def create_action_dataset() -> pd.DataFrame:
 
     def process_actions(doc: str, filter_tag: str = 'VERB') -> List[Token]:
         doc = nlp(doc)
-        return [Token(token.lemma_, token.pos_) 
-                for token in doc 
-                if token.pos_ == filter_tag]
+        if doc.has_annotation('TAG'):
+            return [Token(token.lemma_, token.pos_) 
+                    for token in doc 
+                    if token.pos_ == filter_tag]
+        else:
+            return []
 
     sc_actions = sc_actions.apply(lambda x: process_actions(x))
+    print(sc_actions)
 
+
+    # lemmatize for coherent overlap
     atomic_actions = atomic_actions.apply(lambda x: ' '.join(x))
-    atomic_actions = atomic_actions.apply(lambda x: process_actions(x))
+    atomic_actions = atomic_actions.apply(lambda x: [t.lemma_ for t in nlp(x)])  
+    print(atomic_actions)
     atomic_data['prefix'] = atomic_actions
     
-    df = []
     atomic_cols = [
                 'oEffect',
                 'oReact',
@@ -54,14 +60,16 @@ def create_action_dataset() -> pd.DataFrame:
                 'prefix'
                 ]
 
+    # final dataframe
     atomic_data = atomic_data[atomic_cols]
+    df = []
 
     for i, sca in enumerate(sc_actions):
         tmp_dict = {k: [] for k in atomic_data.columns}
 
         for _, a in atomic_data.iterrows():
             for s in sca:
-                if s in a['prefix']:
+                if s.lemma in a['prefix']:
                     for k in tmp_dict.keys():
                         tmp_dict[k].append(a[k])
         tmp_dict['id'] = i
@@ -70,16 +78,6 @@ def create_action_dataset() -> pd.DataFrame:
     df = pd.DataFrame(df)
     df.to_csv('data/unified.tsv', sep='\t', encoding='utf8')
     return df
-
-
-                    
-                    
-            
-            
-
-
-
-    
 
 
 create_action_dataset()
