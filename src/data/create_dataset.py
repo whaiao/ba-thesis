@@ -1,14 +1,15 @@
+from glob import glob
+from pprint import pprint
 from typing import List, NamedTuple, Tuple
-from multiprocess.pool import AsyncResult
 
 import pandas as pd
 import spacy
+from multiprocess.pool import AsyncResult
 from spacy.language import Language
 from tqdm import tqdm
 
-from preprocessing import social_chem
-from ..utils import multiprocess
-
+from src.utils import multiprocess
+from src.data.preprocessing import social_chem
 
 DataFrame = pd.DataFrame
 class Token(NamedTuple):
@@ -42,7 +43,6 @@ def create_action_dataset() -> Tuple[pd.DataFrame]:
             return []
 
     
-    tqdm.pandas()
     sc_actions = sc_actions.apply(lambda x: process_actions(x))
     # lemmatize for verb overlap
     atomic_actions = atomic_actions.apply(lambda x: [t.lemma_ for t in nlp(' '.join(eval(x)))])
@@ -99,3 +99,16 @@ def retrieve_verb_overlap(d1: DataFrame, d2: DataFrame, multiprocessing: bool = 
         res = multiprocess(search, iters)
         return res
 
+
+def unify_dataframes(dataframes: List[str]):
+    data = []
+    for df in tqdm(dataframes):
+        data.append(pd.read_csv(df, sep='\t', encoding='utf8'))
+    
+    return pd.concat(data).reset_index(drop=False).to_csv('./data/tmp/complete_verb_frame.tsv', encoding='utf8', sep='\t')
+    
+
+if __name__ == "__main__":
+    frames = sorted(glob('./data/tmp/*split*.tsv'))
+    pprint(frames)
+    unify_dataframes(frames)

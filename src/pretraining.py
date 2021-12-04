@@ -43,5 +43,4 @@ def test():
     pprint(tokenized)
     # pprint(out)
 
-test()
 

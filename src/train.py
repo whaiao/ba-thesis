@@ -1,8 +1,6 @@
 import functools
 
-import torch
 import torch.nn as nn
-import torch.optimizer as optim
 
 import jax
 import numpy as np

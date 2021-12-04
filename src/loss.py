@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as random
 
-from .dtypes import Data, Callable
+from typing import Callable, Iterable
 
 PRNGKey = random.PRNGKey
 
@@ -12,7 +12,7 @@ def lm_with_mask_loss_fn(forward_fn: Callable,
                          vocab_size: int,
                          params: hk.Params,
                          rng: PRNGKey,
-                         data: Data,
+                         data: Iterable,
                          is_training: bool = True) -> jnp.ndarray:
     """Cross-entropy loss with masking for Transformers
 

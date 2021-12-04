@@ -8,8 +8,8 @@ from string import punctuation
 import pandas as pd
 from tqdm import tqdm
 
-from ..dtypes import *
 from ..data import read_jsonlines, read_csv
+from ..dtypes import *
 
 
 def jsonl2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):

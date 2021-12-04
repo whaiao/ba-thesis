@@ -2,15 +2,10 @@
 Declares abstract dataset class and implements datasets used in the project
 """
 from abc import ABC, abstractmethod
-from collections import namedtuple
 from typing import List, Union
 
-import datasets
-import numpy as np
 import jax.numpy as jnp
-import torch.utils.data as torchdata
-
-from datasets import load_dataset
+import numpy as np
 
 TorchType = torch.dtype
 NumpyType = np.dtype

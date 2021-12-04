@@ -4,12 +4,12 @@ Run from root.
 """
 
 import re
-from glob import glob
 from functools import partial
-from pprint import pprint
+from glob import glob
 from typing import Tuple, List, Mapping
 
 import pandas as pd
+
 from reader import read_jsonlines
 
 glob = partial(glob, recursive=True)
