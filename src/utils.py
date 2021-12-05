@@ -3,16 +3,21 @@
 """
 Configuration handling for experiments
 """
+from ast import literal_eval
+from functools import reduce
 from pathlib import Path
-from typing import Union, Mapping, Callable, Iterable, TypeVar
+from typing import List, Union, Mapping, Callable, Iterable, TypeVar
 
 import jax.numpy as jnp
+import pandas as pd
 import numpy as np
 import torch
+from tqdm import tqdm
 from multiprocess.pool import Pool, AsyncResult
 
 import yaml
 
+Dataframe = pd.DataFrame
 T = TypeVar('T', np.ndarray, jnp.ndarray, torch.Tensor)
 
 
@@ -45,3 +50,20 @@ def multiprocess(f: Callable, args: Iterable, n_workers=None) -> AsyncResult:
     with Pool(n_workers) as p:
         res = p.starmap_async(f, args)
         return res.get()
+
+
+def remap_dataframe_dtypes(df: Dataframe, cols: List[str]) -> Dataframe:
+    for c in tqdm(cols):
+        tmp_col = df[c].apply(lambda x: literal_eval(x))
+        for d in tmp_col:
+            if len(d) > 1:
+                new_col = reduce(lambda x, y: x + literal_eval(y), d, [])
+                d = new_col
+            else:
+                continue
+        df[c] = tmp_col
+
+    df.to_csv('data/tmp/converted.tsv', sep='\t', encoding='utf8')
+    return df
+
+

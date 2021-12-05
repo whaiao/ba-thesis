@@ -1,4 +1,5 @@
 from glob import glob
+from functools import partial
 from pprint import pprint
 from typing import List, NamedTuple, Tuple
 
@@ -8,9 +9,10 @@ from multiprocess.pool import AsyncResult
 from spacy.language import Language
 from tqdm import tqdm
 
-from src.utils import multiprocess
+from src.utils import multiprocess, remap_dataframe_dtypes
 # from src.data.preprocessing import social_chem
 
+read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8')
 DataFrame = pd.DataFrame
 class Token(NamedTuple):
     lemma: str
@@ -152,10 +154,20 @@ def main():
     merge_verb_data()
 
 
-
-        
-            
-    
-
 if __name__ == "__main__":
-    main()
+    atomic_cols = [
+            'oEffect',
+            'oReact',
+            'oWant',
+            'xAttr',
+            'xEffect',
+            'xIntent',
+            'xNeed',
+            'xReact',
+            'xWant',
+            'prefix'
+            ]
+    df = read_tsv('data/tmp/tmp_verb_frame.tsv')
+    remap_dataframe_dtypes(df, atomic_cols)
+    pprint(df)
+
