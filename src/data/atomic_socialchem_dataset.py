@@ -9,7 +9,7 @@ from spacy.language import Language
 from tqdm import tqdm
 
 from src.utils import multiprocess
-from src.data.preprocessing import social_chem
+# from src.data.preprocessing import social_chem
 
 DataFrame = pd.DataFrame
 class Token(NamedTuple):
@@ -28,10 +28,10 @@ def create_action_dataset() -> Tuple[pd.DataFrame]:
         dataframe holding the union of actions and knowledge
     """
     nlp: Language = spacy.load('en_core_web_lg')  # loads large spacy model for tagging and parsing
-    sc_data = social_chem()
+    sc_data = pd.read_csv('data/processed/social_chem_agg.tsv', sep='\t', encoding='utf8')
     sc_actions = sc_data['action']
-    atomic_data = load_atomic()
-    atomic_actions = atomic_data['prefix']
+    # atomic_data = load_atomic()
+    # atomic_actions = atomic_data['prefix']
 
     def process_actions(doc: str, filter_tag: str = 'VERB') -> List[Token]:
         doc = nlp(doc)
@@ -45,17 +45,17 @@ def create_action_dataset() -> Tuple[pd.DataFrame]:
     
     sc_actions = sc_actions.apply(lambda x: process_actions(x))
     # lemmatize for verb overlap
-    atomic_actions = atomic_actions.apply(lambda x: [t.lemma_ for t in nlp(' '.join(eval(x)))])
+    # atomic_actions = atomic_actions.apply(lambda x: [t.lemma_ for t in nlp(' '.join(eval(x)))])
 
     sc_data['extracted_actions'] = sc_actions
-    atomic_data['prefix'] = atomic_actions
+    # atomic_data['prefix'] = atomic_actions
 
     print('Saving data')
-    atomic_data.to_csv('data/atomic_processed.tsv', sep='\t', encoding='utf8')
+    # atomic_data.to_csv('data/atomic_processed.tsv', sep='\t', encoding='utf8')
     sc_data.to_csv('data/sc_processed.tsv', sep='\t', encoding='utf8')
     print('Saved frames')
     
-    return (atomic_data, sc_data)
+    return sc_data #(atomic_data, sc_data)
 
 def retrieve_verb_overlap(d1: DataFrame, d2: DataFrame, multiprocessing: bool = True) -> AsyncResult:
     atomic_cols = [
@@ -103,12 +103,59 @@ def retrieve_verb_overlap(d1: DataFrame, d2: DataFrame, multiprocessing: bool = 
 def unify_dataframes(dataframes: List[str]):
     data = []
     for df in tqdm(dataframes):
-        data.append(pd.read_csv(df, sep='\t', encoding='utf8'))
+        data.append(pd.read_csv(df, sep='\t', encoding='utf8', index_col='id'))
     
     return pd.concat(data).reset_index(drop=False).to_csv('./data/tmp/complete_verb_frame.tsv', encoding='utf8', sep='\t')
+
+
+def merge_verb_data():
+    atomic_cols = [
+            'oEffect',
+            'oReact',
+            'oWant',
+            'xAttr',
+            'xEffect',
+            'xIntent',
+            'xNeed',
+            'xReact',
+            'xWant',
+            'prefix'
+            ]
+    social_chem = pd.read_csv('data/sc_processed.tsv', sep='\t', encoding='utf8', index_col='Unnamed: 0')
+    verb_frame = pd.read_csv('data/tmp/complete_verb_frame.tsv', sep='\t', encoding='utf8')
+    candidate_df = []
+    
+    for i, _ in social_chem.iterrows():
+        tmp = {k: [] for k in atomic_cols}
+        for _, a in verb_frame[verb_frame['id'] == i].iterrows():
+            for k in tmp.keys():
+                tmp[k].extend(eval(a[k]))
+        
+        candidate_df.append(tmp)
+
+    df = pd.DataFrame(candidate_df)
+    df.to_csv('data/tmp/canditate.tsv', sep='\t', encoding='utf8', index=None)
+    
+    # pd.merge(social_chem, df).to_csv('data/tmp/verbs.tsv', sep='\t', encoding='utf8')
+
+
+def main():
+    atomic_actions = pd.read_csv('data/atomic_processed.tsv', sep='\t', encoding='utf8')
+    print('start actions')
+    sc_actions = create_action_dataset() 
+    print('start overlap')
+    retrieve_verb_overlap(sc_actions, atomic_actions)
+    files = glob('data/tmp/*split*.tsv')
+    print('start unifying')
+    unify_dataframes(files)
+    print('start merging')
+    merge_verb_data()
+
+
+
+        
+            
     
 
 if __name__ == "__main__":
-    frames = sorted(glob('./data/tmp/*split*.tsv'))
-    pprint(frames)
-    unify_dataframes(frames)
+    main()
