@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-
 """
 Configuration handling for experiments
 """
@@ -19,7 +18,6 @@ import yaml
 
 Dataframe = pd.DataFrame
 T = TypeVar('T', np.ndarray, jnp.ndarray, torch.Tensor)
-
 
 # def get_config(yaml_filepath: str) -> Mapping[str, Union[str, float, int]]:
 #     """
@@ -63,7 +61,8 @@ def remap_dataframe_dtypes(df: Dataframe, cols: List[str]) -> Dataframe:
                 continue
         df[c] = tmp_col
 
-    df.to_csv('data/tmp/converted.tsv', sep='\t', encoding='utf8')
+    # IMPORTANT: otherwise dataframe will be saved with strings again
+    df.to_pickle('data/tmp/converted.pickle')
+
+    # df.to_csv('data/tmp/converted.tsv', sep='\t', encoding='utf8')
     return df
-
-
