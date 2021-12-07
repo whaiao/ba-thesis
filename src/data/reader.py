@@ -3,6 +3,7 @@
 Data reading module
 """
 
+from pickle import load
 from typing import Any, List, Mapping
 
 import pandas as pd
@@ -26,3 +27,9 @@ def read_csv(filepath: str, seperator: str = ',') -> pd.DataFrame:
         seperator: character used to seperate columns
     """
     return pd.read_csv(filepath, encoding='utf8', sep=seperator)
+
+
+def read_pickle(filepath: str) -> Any:
+    with open(filepath, 'rb') as p:
+        return load(p, encoding='utf8')
+
