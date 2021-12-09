@@ -3,13 +3,12 @@
 All functions to process data go here
 """
 from glob import glob
-from string import punctuation
+from pickle import dump
 
 import pandas as pd
 from tqdm import tqdm
 
-from ..data import read_jsonlines, read_csv
-from ..dtypes import *
+from src.data.reader import read_jsonlines, read_csv
 
 
 def jsonl2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):
@@ -30,8 +29,7 @@ def csv2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):
         data = read_csv(file)
         pd.DataFrame(data).to_csv(new_filename, encoding='utf8', sep='\t')
 
-
-def preprocessing(s: Sentence) -> Sentence:
-    transdict = str.maketrans('', '', punctuation)
-    tokens = [w.translate(transdict) for w in s]
-    return tokens
+def to_pickle(data, saveto: str ='data/processed/'):
+    with open(saveto, 'rb') as p:
+        dump(data, p)        
+    print(f'Saved pickle file to: {saveto}')

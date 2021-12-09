@@ -3,7 +3,7 @@
 Configuration handling for experiments
 """
 from ast import literal_eval
-from functools import reduce
+from functools import reduce, partial
 from pathlib import Path
 from typing import List, Union, Mapping, Callable, Iterable, TypeVar
 
@@ -42,6 +42,9 @@ def return_tensor(x: np.ndarray, return_as: str, dtype=None) -> T:
         return jnp.array(x, dtype)
     else:
         raise ValueError(f'{dtype} is not supported.')
+
+
+read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8')
 
 
 def multiprocess(f: Callable, args: Iterable, n_workers=None) -> AsyncResult:

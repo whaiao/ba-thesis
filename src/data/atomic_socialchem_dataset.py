@@ -1,22 +1,47 @@
-from glob import glob
-from functools import partial
+from dataclasses import dataclass, field
 from pprint import pprint
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple, Tuple, Union, Dict
 
 import pandas as pd
 import spacy
-from multiprocess.pool import AsyncResult
+from spacy import displacy
 from spacy.language import Language
+from spacy.tokens.doc import Doc
+
+from multiprocess.pool import AsyncResult
 from tqdm import tqdm
 
-from src.utils import multiprocess, remap_dataframe_dtypes
+from src.utils import multiprocess, remap_dataframe_dtypes, read_tsv
 # from src.data.preprocessing import social_chem
 
-read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8')
+
+
+# dtypes used in this module
 DataFrame = pd.DataFrame
 class Token(NamedTuple):
     lemma: str
     pos: str
+
+class Entry(NamedTuple):
+    split: str
+    rot_categoization: List[str]
+    rot_judgement: str
+    groupbyaction: str
+    action_agreement: float
+    situation: str
+    rot: str
+    extracted_actions: List[Token]
+    o_effect: List[str]
+    o_react: List[str]
+    o_want: List[str]
+    x_attr: List[str]
+    x_effect: List[str]
+    x_intent: List[str]
+    x_need: List[str]
+    x_react: List[str]
+    x_want: List[str]
+    prefix: List[str]
+    dependency_parse: Union[Doc, List[str]]
 
 
 def load_atomic(path: str = 'data/processed/v4_atomic_all.tsv') -> pd.DataFrame:
@@ -141,17 +166,21 @@ def merge_verb_data():
     # pd.merge(social_chem, df).to_csv('data/tmp/verbs.tsv', sep='\t', encoding='utf8')
 
 
-def main():
-    atomic_actions = pd.read_csv('data/atomic_processed.tsv', sep='\t', encoding='utf8')
-    print('start actions')
-    sc_actions = create_action_dataset() 
-    print('start overlap')
-    retrieve_verb_overlap(sc_actions, atomic_actions)
-    files = glob('data/tmp/*split*.tsv')
-    print('start unifying')
-    unify_dataframes(files)
-    print('start merging')
-    merge_verb_data()
+
+
+@dataclass
+class AtomicSocialChemistry:
+    atomic_path: str
+    social_chem_path: str
+    data: Dict[int, Entry] = field(init=False)
+
+    def __post_init__(self):
+        """Gets called post initalization"""
+        self.atomic = read_tsv(atomic_path)
+        self.social_chem = read_tsv(social_chem_path)
+        print('Loading data')
+        del self.atomic, self.social_chem, self.atomic_path, self.social_chem_path
+
 
 
 if __name__ == "__main__":

@@ -37,11 +37,12 @@ class Dataset(ABC):
     @classmethod
     @abstractmethod
     def load(self, name: Union[None, str]):
-        pass
+        raise NotImplementedError('Implement a load function for this dataset')
+        
 
-    # @abstractmethod
-    # def save(self):
-    #     pass
+    @abstractmethod
+    def save(self):
+        raise NotImplementedError('Implement a save function for this dataset')
 
     @abstractmethod
     def preprocess(self):
