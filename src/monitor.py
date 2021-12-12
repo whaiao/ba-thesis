@@ -1,6 +1,8 @@
+from functools import wraps
+from typing import Callable
+
 import wandb
 
-from .dtypes import *
 
 
 def run_session(session: Session, log_dict: Mapping[str, Jndarray], entity: str = 'benjaminbeilharz', model=None):
@@ -12,3 +14,12 @@ def run_session(session: Session, log_dict: Mapping[str, Jndarray], entity: str 
     if session.cfg['session_type'] == 'torch':
         assert model is not None, 'Model cannot be empty if you are using wandb with PyTorch'
         wandb.watch(model)
+
+
+# def monitor(func: Callable, cfg: dict):
+#     @wraps(func)
+#     def monitor_experiment(*args, **kwargs):
+#         wandb.init(project=cfg['name'], entity='benjaminbeilharz')
+#         func(*args, **kwargs)
+#         wandb.watch(mod
+# 

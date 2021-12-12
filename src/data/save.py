@@ -30,6 +30,6 @@ def csv2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):
         pd.DataFrame(data).to_csv(new_filename, encoding='utf8', sep='\t')
 
 def to_pickle(data, saveto: str ='data/processed/'):
-    with open(saveto, 'rb') as p:
+    with open(saveto, 'wb') as p:
         dump(data, p)        
     print(f'Saved pickle file to: {saveto}')
