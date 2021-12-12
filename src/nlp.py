@@ -1,4 +1,5 @@
 
+from collections import defaultdict
 from datetime import date
 from typing import Mapping, NamedTuple, Set, Union, List
 
@@ -9,7 +10,7 @@ from spacy import displacy
 from spacy.tokens.doc import Doc
 from spacy.tokens.token import Token
 
-from src.utils import read_tsv
+from src.utils import read_tsv, sorted_dict
 from src.data.save import to_pickle
 
 # dtypes and constants
@@ -57,6 +58,7 @@ def dependency_parse(from_data: Union[Dataframe, Data], target_columns: List[str
 
 def extract_verbs(from_data: Union[Dataframe, Data], column: str, dependent_on: S) -> Set[str]:
     """Returns the set of lemmatized verbs dependent on given dependency relations.
+    See: https://universaldependencies.org/u/dep/
 
     Args:
         from_data: the data to extract verbs from
@@ -76,6 +78,10 @@ def extract_verbs(from_data: Union[Dataframe, Data], column: str, dependent_on: 
             if t.dep == dependent_on and t.head.pos == S.VERB:
                 verbs.add(t.head.lemma_)
     return verbs
+
+
+def count_dependency_occurences(data: dict):
+    pass
 
 
 def display_dependency_parse(doc: Doc):

@@ -17,6 +17,8 @@ from multiprocess.pool import Pool, AsyncResult
 import yaml
 
 Dataframe = pd.DataFrame
+
+
 T = TypeVar('T', np.ndarray, jnp.ndarray, torch.Tensor)
 
 # def get_config(yaml_filepath: str) -> Mapping[str, Union[str, float, int]]:
@@ -33,7 +35,7 @@ T = TypeVar('T', np.ndarray, jnp.ndarray, torch.Tensor)
 #         return yaml.safe_load(f)
 
 
-def return_tensor(x: np.ndarray, return_as: str, dtype=None) -> T:
+def return_tensor(x: np.ndarray, return_as: str, dtype=None):
     if return_as == 'torch':
         return torch.tensor(x, dtype=dtype)
     elif return_as == 'numpy':
@@ -45,6 +47,7 @@ def return_tensor(x: np.ndarray, return_as: str, dtype=None) -> T:
 
 
 read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8')
+sorted_dict = partial(sorted, key=lambda item: item[1], reverse=True)
 
 
 def multiprocess(f: Callable, args: Iterable, n_workers=None) -> AsyncResult:
