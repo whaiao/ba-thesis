@@ -1,4 +1,3 @@
-
 from collections import defaultdict
 from datetime import date
 from typing import Callable, Tuple, Mapping, NamedTuple, Set, Union, List
@@ -31,6 +30,12 @@ class DependencyParse(NamedTuple):
     head_pos: str
     children: List[Token]
     doc: Doc
+
+class NounChunk(NamedTuple):
+    token: str
+    root: str
+    root_pos: str
+    root_dep: str
 # - 
 
 
@@ -117,6 +122,26 @@ def extract_dependency_parses(from_data: Union[Dataframe, Data], column: str) ->
             {k: v for k, v in sorted_dict(ddict.items())},
             {k: v for k, v in sorted_dict(cdict.items())}
             )
+
+
+def noun_chunking(from_data: Union[Dataframe, Data], column: str) -> Mapping[str, List[NounChunk]]:
+    """Gather noun chunks of documents
+
+    Args:
+        from_data: the data to extract verbs from
+        column: column or key to access data
+
+    Returns:
+        dictionary of document mapped to their noun chunks
+    """
+
+    ddict = defaultdict(list)
+    for i in list(set(from_data[column])):
+        doc = NLP(i)
+        ddict[doc.text] = [NounChunk(c.text, c.root.head.text, c.root.head.pos_, c.root.head.dep_) 
+                for c in doc.noun_chunks]
+
+    return ddict
 
 
 def display_dependency_parse(doc: Doc):
