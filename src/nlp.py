@@ -1,7 +1,7 @@
 
 from collections import defaultdict
 from datetime import date
-from typing import Mapping, NamedTuple, Set, Union, List
+from typing import Callable, Tuple, Mapping, NamedTuple, Set, Union, List
 
 import pandas as pd
 import spacy
@@ -14,7 +14,14 @@ from src.utils import read_tsv, sorted_dict
 from src.data.save import to_pickle
 
 # dtypes and constants
-NLP = spacy.load('en_core_web_lg')
+try:
+    NLP = spacy.load('en_core_web_lg')
+except:
+    from subprocess import call
+    call('python -m spacy download en_core_web_lg'.split(' '))
+    del call
+    NLP = spacy.load('en_core_web_lg')
+
 Dataframe = pd.DataFrame
 Data = Mapping[int, NamedTuple]
 class DependencyParse(NamedTuple):
@@ -25,6 +32,11 @@ class DependencyParse(NamedTuple):
     children: List[Token]
     doc: Doc
 # - 
+
+
+def nlp(from_data: Union[Dataframe, Data], target_columns: List[str], task: Callable):
+    # TODO: gather all functions in here
+    raise NotImplementedError('this still needs to be implemented')
 
 
 
@@ -80,8 +92,31 @@ def extract_verbs(from_data: Union[Dataframe, Data], column: str, dependent_on: 
     return verbs
 
 
-def count_dependency_occurences(data: dict):
-    pass
+def extract_dependency_parses(from_data: Union[Dataframe, Data], column: str) -> Tuple[Mapping[str, list], Mapping[str, int]]:
+    """Gathers docs and maps them to their parse trees and counts them
+
+    Args:
+        from_data: the data to extract verbs from
+        column: column or key to access data
+
+    Returns:
+        dictionary: parsetree to documents
+        dictionary: parsetree to count of occurences
+    """
+    ddict = defaultdict(list)
+    cdict = defaultdict(int)
+    if NLP is None:
+        NLP = spacy.load('en_core_web_lg')
+    for i in list(set(from_data[column])):
+        doc = NLP(i)
+        i = '-'.join([t.dep_ for t in doc])
+        ddict[i].append(doc.text)
+        cdict[i] += 1
+
+    return (
+            {k: v for k, v in sorted_dict(ddict.items())},
+            {k: v for k, v in sorted_dict(cdict.items())}
+            )
 
 
 def display_dependency_parse(doc: Doc):
@@ -92,6 +127,4 @@ def display_dependency_parse(doc: Doc):
     """
     displacy.render(doc)
             
-
-
 
