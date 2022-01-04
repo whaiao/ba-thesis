@@ -1,9 +1,15 @@
+"""
+Module to call ConceptNet api
+"""
 import requests
 
 Response = requests.Response
 
 
-def make_concept_request(concept: str, /, relation_to: str = None, query_on: str = None) -> Response:
+def make_concept_request(concept: str,
+                         /,
+                         relation_to: str = None,
+                         query_on: str = None) -> Response:
     """Creates HTTP request to `conceptnet.io`
 
     Args:
@@ -28,10 +34,8 @@ def make_concept_request(concept: str, /, relation_to: str = None, query_on: str
 
     try:
         response = requests.get(f'http://api.conceptnet.io{request_str}')
-            
+
     except requests.RequestException as e:
-        raise(e)
+        print(e)
 
     return response.json()
-
-
