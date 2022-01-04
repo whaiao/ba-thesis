@@ -1,9 +1,12 @@
 """Atomic Processing Utils"""
 
-from src.constants import DATA_ROOT
+from src.constants import DATA_ROOT, PNAME_PLACEHOLDER, PNAME_SUB
+# from src.nlp import srl, dependency_parse
 
 from functools import partial
 from glob import iglob
+from random import choice
+import re
 from typing import Dict, List, NamedTuple, Tuple
 
 import pandas as pd
@@ -40,7 +43,6 @@ def load_atomic_data(glob_path: str = f'{DATA_ROOT}/atomic/*.tsv',
             data_dict[k].extend(tmp.iloc[:, i].tolist())
 
     df = Dataframe.from_dict(data_dict).reset_index().set_index('index')
-
     if save:
         df_path = f'{DATA_ROOT}/atomic/processed.tsv'
         serialized = f'{DATA_ROOT}/atomic/atomic.pickle'
@@ -140,5 +142,42 @@ def connect_entries(atomic: Dataframe) -> Dataframe:
     raise NotImplementedError()
 
 
+def fill_placeholders(atomic: Dataframe,
+                      columns: List[str] = ['head', 'tail']) -> Dataframe:
+    """Fills placeholder values Person {X, Y, Z} with an arbitrary `pname`
+
+    Args:
+        atomic - atomic dataframe
+        columns - columns to process
+
+    Returns:
+        dataframe with replaced names
+    """
+    df = atomic
+    names = PNAME_SUB
+
+    def replace(x: str, placeholder: str, replace_with: str) -> str:
+        if isinstance(x, str) and placeholder.lower() in x.lower():
+            return re.sub(placeholder, replace_with, x, flags=re.IGNORECASE)
+        return x
+
+    for i in PNAME_PLACEHOLDER:
+        name = choice(names)
+
+        for col in columns:
+            df[col] = df[col].apply(
+                lambda x: replace(x, placeholder=i, replace_with=name))
+
+        # do not allow duplicate names
+        names.remove(name)
+
+    return df
+
+
+# Testing area
 if __name__ == "__main__":
     atomic = load_atomic_data(save=False)
+    __import__('pprint').pprint(fill_placeholders(atomic))
+    #s = 'PersonX adopts a cat'
+    #sample = collect_sample(s, atomic)
+    #__import__('pprint').pprint(srl(s))
