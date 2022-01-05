@@ -129,18 +129,6 @@ def collect_sample(from_head: str,
     }
 
 
-def connect_entries(atomic: Dataframe) -> Dataframe:
-    """Collects all rows with same event and saves it into a new dataframe
-
-    Args:
-        atomic: dataframe
-
-    Returns:
-        new organized dataframe
-    """
-    raise NotImplementedError()
-
-
 def fill_placeholders(atomic: Dataframe,
                       columns: List[str] = ['head', 'tail']) -> Dataframe:
     """Fills placeholder values Person {X, Y, Z} with an arbitrary `pname`
@@ -176,7 +164,10 @@ def fill_placeholders(atomic: Dataframe,
     return df
 
 
-def parse(atomic: Dataframe, parse_type: str, save: bool = True) -> Dataframe:
+def parse(atomic: Dataframe,
+          col: str,
+          parse_type: str,
+          save: bool = True) -> Dataframe:
     """Apply parse function on atomic heads
 
     Args:
@@ -187,37 +178,72 @@ def parse(atomic: Dataframe, parse_type: str, save: bool = True) -> Dataframe:
     Returns:
         dataframe with added parse column
     """
-    assert parse_type in ['srl', 'dp',
-                          'dep'], 'Parse type supplied not implemented'
+    assert parse_type in ['srl', 'dp'], 'Parse type supplied not implemented'
+    assert col in atomic.columns
 
     if parse_type == 'srl':
         from src.nlp import srl
         fn = srl
         del srl
-    else:
+    elif parse_type == 'dp':
         from src.nlp import dependency_parse as dp
         fn = dp
         del dp
 
     df = atomic
     print(f'Start {parse_type} parsing')
-    parses = [fn(head) for head in df['head']]
-    df[parse_type] = parses
+    parses = [fn(t) for t in df[col]]
+    df[f'{col}-{parse_type}'] = parses
     if save: df.to_pickle(f'{DATA_ROOT}/atomic/parse.pickle')
     return df
 
 
-def find_relation(atomic: Dataframe):
-    raise NotImplementedError()
+def find_relations(atomic: Dataframe) -> Dataframe:
+    """Go through atomic tail parses and extract objects to look up in head
+
+    Args:
+        atomic - atomic dataframe
+
+    Returns:
+        dataframe with objects and verbs as columns added
+    """
+    assert 'tail-dp' in atomic.columns
+    df = atomic
+
+    obj_extraction = []
+    verb_extraction = []
+    for sample in df['tail-dp']:
+        obj_tmp = []
+        verb_tmp = []
+        for parse in sample:
+            if 'dobj' in parse.dep or 'pobj' in parse.dep:
+                obj_tmp.append(parse.text)
+                print(f'Sample found in {sample}: {parse.text}')
+            else:
+                obj_tmp.append(None)
+
+            if 'verb' in parse.tag:
+                verb_tmp.append(None)
+            else:
+                verb_tmp.append(None)
+
+        obj_extraction.append(obj_tmp)
+        verb_extraction.append(verb_tmp)
+
+    df['objects'] = obj_extraction
+    df['verbs'] = verb_extraction
+
+    return df
 
 
 # Testing area
 if __name__ == "__main__":
     atomic = load_atomic_data(save=False)
     atomic = fill_placeholders(atomic)
-    atomic.to_csv('tmp.tsv', sep='\t', encoding='utf8')
+    atomic = parse(atomic, col='tail', parse_type='dp', save=False)
+    atomic = find_relations(atomic)
+    atomic.to_pickle('tmp.tsv')
     # srl_parse(atomic, True)
-    # parse(atomic, 'dep', save=False)
     #s = 'PersonX adopts a cat'
     #sample = collect_sample(s, atomic)
     #__import__('pprint').pprint(srl(s))

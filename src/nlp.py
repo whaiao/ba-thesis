@@ -33,6 +33,7 @@ SRLPREDICTOR = Predictor.from_path(
 
 class DependencyParse(NamedTuple):
     token: str
+    tag: str
     dep: str
     head: str
     head_pos: str
@@ -64,6 +65,7 @@ def nlp(from_data: Union[Dataframe, Data], target_columns: List[str],
 
 def dependency_parse(from_sentence: str) -> List[DependencyParse]:
     """Dependency parse given documents. Saves a pickled file to `data/feature` folder
+    See (Spacy Doc)[https://spacy.io/models/en#en_core_web_lg-labels]
 
     Args:
         from_sentence: sentence to parse
@@ -71,6 +73,7 @@ def dependency_parse(from_sentence: str) -> List[DependencyParse]:
     Returns:
         list of dependency parse named tuples containing:
             - token text
+            - token's POS tag
             - token dependency relation
             - token's head text
             - token's head POS tag
@@ -80,7 +83,7 @@ def dependency_parse(from_sentence: str) -> List[DependencyParse]:
     sentence = from_sentence
     doc = NLP(sentence)
     parse = [
-        DependencyParse(t.text, t.dep_, t.head.text, t.head.pos_,
+        DependencyParse(t.text, t.pos_, t.dep_, t.head.text, t.head.pos_,
                         [child for child in t.head.children], doc) for t in doc
     ]
 
