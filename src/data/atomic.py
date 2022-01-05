@@ -1,6 +1,6 @@
 """Atomic Processing Utils"""
 
-from src.constants import DATA_ROOT, PNAME_PLACEHOLDER, PNAME_SUB
+from src.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
 
 from functools import partial
 from glob import iglob
@@ -156,19 +156,22 @@ def fill_placeholders(atomic: Dataframe,
     names = PNAME_SUB
 
     def replace(x: str, placeholder: str, replace_with: str) -> str:
-        if isinstance(x, str) and placeholder.lower() in x.lower():
-            return re.sub(placeholder, replace_with, x, flags=re.IGNORECASE)
+        if isinstance(x, str) and re.search(placeholder, x) is not None:
+            s = re.sub(placeholder, replace_with, x)
+            return s
         return x
 
-    for i in PNAME_PLACEHOLDER:
+    for i in PNAME_PLACEHOLDER_RE:
+        rex = re.compile(i, flags=re.IGNORECASE)
         name = choice(names)
 
         for col in columns:
             df[col] = df[col].apply(
-                lambda x: replace(x, placeholder=i, replace_with=name))
+                lambda x: replace(x, placeholder=rex, replace_with=name))
 
         # do not allow duplicate names
         names.remove(name)
+        re.purge()
 
     return df
 
@@ -200,15 +203,21 @@ def parse(atomic: Dataframe, parse_type: str, save: bool = True) -> Dataframe:
     print(f'Start {parse_type} parsing')
     parses = [fn(head) for head in df['head']]
     df[parse_type] = parses
+    if save: df.to_pickle(f'{DATA_ROOT}/atomic/parse.pickle')
     return df
+
+
+def find_relation(atomic: Dataframe):
+    raise NotImplementedError()
 
 
 # Testing area
 if __name__ == "__main__":
     atomic = load_atomic_data(save=False)
     atomic = fill_placeholders(atomic)
+    atomic.to_csv('tmp.tsv', sep='\t', encoding='utf8')
     # srl_parse(atomic, True)
-    parse(atomic, 'dep', save=False)
+    # parse(atomic, 'dep', save=False)
     #s = 'PersonX adopts a cat'
     #sample = collect_sample(s, atomic)
     #__import__('pprint').pprint(srl(s))

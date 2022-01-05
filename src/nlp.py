@@ -1,5 +1,4 @@
 from collections import defaultdict
-from datetime import date
 from typing import Callable, Tuple, Mapping, NamedTuple, Set, Union, List
 
 from allennlp.predictors.predictor import Predictor
@@ -169,7 +168,7 @@ def display_dependency_parse(doc: Doc):
     """Renders dependency parse
 
     Args:
-        doc: spacy doc
+        doc: spacy dependency parse to visualize
     """
     displacy.render(doc)
 
