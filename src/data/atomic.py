@@ -1,7 +1,6 @@
 """Atomic Processing Utils"""
 
 from src.constants import DATA_ROOT, PNAME_PLACEHOLDER, PNAME_SUB
-# from src.nlp import srl, dependency_parse
 
 from functools import partial
 from glob import iglob
@@ -174,10 +173,42 @@ def fill_placeholders(atomic: Dataframe,
     return df
 
 
+def parse(atomic: Dataframe, parse_type: str, save: bool = True) -> Dataframe:
+    """Apply parse function on atomic heads
+
+    Args:
+        atomic - atomic dataframe
+        parse_type - possible parse types: srl, dp
+        save - if true saves dataframe to disk
+
+    Returns:
+        dataframe with added parse column
+    """
+    assert parse_type in ['srl', 'dp',
+                          'dep'], 'Parse type supplied not implemented'
+
+    if parse_type == 'srl':
+        from src.nlp import srl
+        fn = srl
+        del srl
+    else:
+        from src.nlp import dependency_parse as dp
+        fn = dp
+        del dp
+
+    df = atomic
+    print(f'Start {parse_type} parsing')
+    parses = [fn(head) for head in df['head']]
+    df[parse_type] = parses
+    return df
+
+
 # Testing area
 if __name__ == "__main__":
     atomic = load_atomic_data(save=False)
-    __import__('pprint').pprint(fill_placeholders(atomic))
+    atomic = fill_placeholders(atomic)
+    # srl_parse(atomic, True)
+    parse(atomic, 'dep', save=False)
     #s = 'PersonX adopts a cat'
     #sample = collect_sample(s, atomic)
     #__import__('pprint').pprint(srl(s))

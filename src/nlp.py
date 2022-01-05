@@ -63,37 +63,29 @@ def nlp(from_data: Union[Dataframe, Data], target_columns: List[str],
     raise NotImplementedError('this still needs to be implemented')
 
 
-def dependency_parse(
-        from_data: Union[Dataframe, Data],
-        target_columns: List[str],
-        save: bool = True
-) -> Mapping[str, Mapping[int, List[Union[str, Doc]]]]:
+def dependency_parse(from_sentence: str) -> List[DependencyParse]:
     """Dependency parse given documents. Saves a pickled file to `data/feature` folder
 
     Args:
-        from_data: data to parse
-        target_columns: specific dataframe columns, or dictionary keys
+        from_sentence: sentence to parse
 
     Returns:
-        dictionary with target_columns mapped towards idx and their dependency parse 
+        list of dependency parse named tuples containing:
+            - token text
+            - token dependency relation
+            - token's head text
+            - token's head POS tag
+            - token's head children
+            - `Spacy` document class
     """
-    assert isinstance(target_columns, list)
-    res = {k: {} for k in target_columns}
-    if isinstance(from_data, Dataframe):
-        for i, row in from_data.iterrows():
-            for col in target_columns:
-                doc = NLP(row[col])
-                deps = [
-                    DependencyParse(t.text, t.dep_, t.head.text, t.head.pos_,
-                                    [child for child in t.head.children], doc)
-                    for t in doc
-                ]  # extract dependency_parse
-                res[col][i] = deps
-    if save:
-        to_pickle(
-            res,
-            f'{DATA_ROOT}/features/dependency_parse_{date.today()}.pickle')
-    return res
+    sentence = from_sentence
+    doc = NLP(sentence)
+    parse = [
+        DependencyParse(t.text, t.dep_, t.head.text, t.head.pos_,
+                        [child for child in t.head.children], doc) for t in doc
+    ]
+
+    return parse
 
 
 def extract_verbs(from_data: Union[Dataframe, Data], column: str,
