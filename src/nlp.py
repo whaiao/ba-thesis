@@ -26,6 +26,7 @@ except:
 
 Dataframe = pd.DataFrame
 Data = Mapping[int, NamedTuple]
+# allennlp srl model
 SRLPREDICTOR = Predictor.from_path(
     "https://storage.googleapis.com/allennlp-public-models/structured-prediction-srl-bert.2020.12.15.tar.gz"
 )

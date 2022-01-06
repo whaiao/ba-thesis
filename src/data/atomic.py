@@ -192,7 +192,10 @@ def parse(atomic: Dataframe,
 
     df = atomic
     print(f'Start {parse_type} parsing')
-    parses = [fn(t) for t in df[col]]
+    parses = []
+    for t in df[col]:
+        tmp = fn(t) if isinstance(t, str) else None
+        parses.append(tmp)
     df[f'{col}-{parse_type}'] = parses
     if save: df.to_pickle(f'{DATA_ROOT}/atomic/parse.pickle')
     return df
