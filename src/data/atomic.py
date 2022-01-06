@@ -4,11 +4,14 @@ from src.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
 
 from functools import partial
 from glob import iglob
+import pickle
 from random import choice
 import re
-from typing import Dict, List, NamedTuple, Tuple
+from typing import Dict, List, NamedTuple, Tuple, Callable
 
+from multiprocess import Pool
 import pandas as pd
+from tqdm import tqdm
 
 read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8', header=None)
 Dataframe = pd.DataFrame
@@ -193,7 +196,9 @@ def parse(atomic: Dataframe,
     df = atomic
     print(f'Start {parse_type} parsing')
     parses = []
-    for t in df[col]:
+    for i, t in enumerate(df[col], start=1):
+        if i % 5000 == 0:
+            print('step ', i)
         tmp = fn(t) if isinstance(t, str) else None
         parses.append(tmp)
     df[f'{col}-{parse_type}'] = parses
@@ -239,14 +244,38 @@ def find_relations(atomic: Dataframe) -> Dataframe:
     return df
 
 
+def split_dataset(atomic: Dataframe) -> List[Dataframe]:
+    s = len(atomic) // 4
+    df = atomic
+    sets = []
+    for _ in range(4):
+        new_frame = df.sample(s)
+        sets.append(new_frame)
+        df = df.drop(new_frame.index)
+
+    return sets
+
+
+def multiprocess(f: Callable, datasets: List[Dataframe]):
+    with Pool(None) as p:
+        res = p.map(f, datasets)
+
+    return res
+
+
 # Testing area
 if __name__ == "__main__":
     atomic = load_atomic_data(save=False)
+    # atomic = read_tsv('./data/atomic/processed.tsv')
+    #  print(atomic.head())
     atomic = fill_placeholders(atomic)
-    atomic = parse(atomic, col='tail', parse_type='dp', save=False)
-    atomic = find_relations(atomic)
-    atomic.to_pickle('tmp.tsv')
-    # srl_parse(atomic, True)
-    #s = 'PersonX adopts a cat'
-    #sample = collect_sample(s, atomic)
-    #__import__('pprint').pprint(srl(s))
+    datasets = split_dataset(atomic)
+    assert len(datasets) == 4
+    srl = partial(parse, save=False, col='tail', parse_type='srl')
+    dp = partial(parse, save=False, col='tail', parse_type='dp')
+    atomic_srl = multiprocess(srl, datasets)
+    with open('./atomic_srl.pickle', 'wb') as f:
+        pickle.dump(atomic_srl, f, protocol=pickle.HIGHEST_PROTOCOL)
+    atomic_dp = multiprocess(dp, datasets)
+    with open('./atomic_dp.pickle', 'wb') as f:
+        pickle.dump(atomic_dp, f, protocol=pickle.HIGHEST_PROTOCOL)
