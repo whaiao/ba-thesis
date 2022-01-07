@@ -67,9 +67,10 @@ def parse(soc_chem: Dataframe,
         fn = srl
         del srl
     elif parse_type == 'dp':
-        from src.nlp import dependency_parse as dp
-        fn = dp
-        del dp
+        import spacy
+        # tokens cannot be pickled
+        nlp = spacy.load('en_core_web_lg')
+        fn = nlp
 
     df = soc_chem
     print(f'Start {parse_type} parsing')

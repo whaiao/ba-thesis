@@ -81,6 +81,7 @@ def dependency_parse(from_sentence: str) -> List[DependencyParse]:
             - token's head children
             - `Spacy` document class
     """
+    # IMPORTANT! tokens cannot be pickled
     sentence = from_sentence
     doc = NLP(sentence)
     parse = [
