@@ -1,4 +1,5 @@
 import pickle
+from typing import List
 from src.constants import DATA_ROOT
 from src.utils import multiprocess_dataset, read_tsv
 
@@ -43,8 +44,8 @@ def extract_rot(from_action: str):
 
 
 def parse(soc_chem: Dataframe,
-          col: str,
           parse_type: str,
+          col: List[str],
           save: bool = True) -> Dataframe:
     """Apply parse function on atomic heads
 
@@ -58,7 +59,7 @@ def parse(soc_chem: Dataframe,
     """
     assert parse_type in ['srl',
                           'dp'], f'Parse type {parse_type} not implemented'
-    assert col in soc_chem.columns
+    assert all([c in soc_chem.columns for c in col])
 
     # load and destroy on-demand
     if parse_type == 'srl':
@@ -72,14 +73,16 @@ def parse(soc_chem: Dataframe,
 
     df = soc_chem
     print(f'Start {parse_type} parsing')
-    parses = []
-    for t in df[col]:
-        if isinstance(t, str):
-            tmp = fn(t) if t != '' else None
-        else:
-            tmp = None
-        parses.append(tmp)
-    df[f'{col}-{parse_type}'] = parses
+    for c in col:
+        parses = []
+        for t in df[c]:
+            if isinstance(t, str):
+                tmp = fn(t) if t != '' else None
+            else:
+                tmp = None
+            parses.append(tmp)
+        df[f'{c}-{parse_type}'] = parses
+
     if save:
         df.to_pickle(
             f'{DATA_ROOT}/social_chemistry/parse-{col}-{parse_type}.pickle')
@@ -128,31 +131,18 @@ def find_relations(soc_chem: Dataframe, column: str) -> Dataframe:
 
 if __name__ == "__main__":
     soc_chem = load_social_chemistry_data(save=False)
-    dp_situation = multiprocess_dataset(parse,
-                                        soc_chem,
-                                        col='situation',
-                                        parse_type='dp',
-                                        save=False)
-    dp_action = multiprocess_dataset(parse,
-                                     soc_chem,
-                                     col='action',
-                                     parse_type='dp',
-                                     save=False)
-    srl_situation = multiprocess_dataset(parse,
-                                         soc_chem,
-                                         col='situation',
-                                         parse_type='srl',
-                                         save=False)
-    srl_action = multiprocess_dataset(parse,
-                                      soc_chem,
-                                      col='action',
-                                      parse_type='srl',
-                                      save=False)
+    dp = multiprocess_dataset(parse,
+                              soc_chem,
+                              col=['situation', 'action'],
+                              parse_type='dp',
+                              save=False)
+    with open(f'{DATA_ROOT}/social_chemistry/dp.pickle', 'wb') as f:
+        pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    filenames = ['dp_situation', 'dp_action', 'srl_situation', 'srl_action']
-
-    for filename, data in zip(
-            filenames, [dp_situation, dp_action, srl_situation, srl_action]):
-        with open(f'{DATA_ROOT}/social_chemistry/{filename}.pickle',
-                  'wb') as f:
-            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    srl = multiprocess_dataset(parse,
+                               soc_chem,
+                               col=['situation', 'action'],
+                               parse_type='srl',
+                               save=False)
+    with open(f'{DATA_ROOT}/social_chemistry/srl.pickle', 'wb') as f:
+        pickle.dump(srl, f, protocol=pickle.HIGHEST_PROTOCOL)
