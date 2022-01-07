@@ -1,6 +1,8 @@
 """Atomic Processing Utils"""
 
+from os import cpu_count
 from src.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
+from src.utils import multiprocess_dataset
 
 from functools import partial
 from glob import iglob
@@ -202,7 +204,8 @@ def parse(atomic: Dataframe,
         tmp = fn(t) if isinstance(t, str) else None
         parses.append(tmp)
     df[f'{col}-{parse_type}'] = parses
-    if save: df.to_pickle(f'{DATA_ROOT}/atomic/parse.pickle')
+    if save:
+        df.to_pickle(f'{DATA_ROOT}/atomic/parse-{col}-{parse_type}.pickle')
     return df
 
 
@@ -244,38 +247,22 @@ def find_relations(atomic: Dataframe) -> Dataframe:
     return df
 
 
-def split_dataset(atomic: Dataframe) -> List[Dataframe]:
-    s = len(atomic) // 4
-    df = atomic
-    sets = []
-    for _ in range(4):
-        new_frame = df.sample(s)
-        sets.append(new_frame)
-        df = df.drop(new_frame.index)
-
-    return sets
-
-
-def multiprocess(f: Callable, datasets: List[Dataframe]):
-    with Pool(None) as p:
-        res = p.map(f, datasets)
-
-    return res
-
-
 # Testing area
 if __name__ == "__main__":
     atomic = load_atomic_data(save=False)
-    # atomic = read_tsv('./data/atomic/processed.tsv')
-    #  print(atomic.head())
     atomic = fill_placeholders(atomic)
-    datasets = split_dataset(atomic)
-    assert len(datasets) == 4
-    srl = partial(parse, save=False, col='tail', parse_type='srl')
-    dp = partial(parse, save=False, col='tail', parse_type='dp')
-    atomic_srl = multiprocess(srl, datasets)
+    srl = multiprocess_dataset(parse,
+                               atomic,
+                               save=False,
+                               col='tail',
+                               parse_type='srl')
     with open('./atomic_srl.pickle', 'wb') as f:
-        pickle.dump(atomic_srl, f, protocol=pickle.HIGHEST_PROTOCOL)
-    atomic_dp = multiprocess(dp, datasets)
+        pickle.dump(srl, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    dp = multiprocess_dataset(parse,
+                              atomic,
+                              save=False,
+                              col='tail',
+                              parse_type='dp')
     with open('./atomic_dp.pickle', 'wb') as f:
-        pickle.dump(atomic_dp, f, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)

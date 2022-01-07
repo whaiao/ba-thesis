@@ -1,38 +1,20 @@
 #! /usr/bin/env python3
 """
-Configuration handling for experiments
+General utils for project
 """
-from ast import literal_eval
-from functools import reduce, partial
-from pathlib import Path
-from typing import List, Union, Mapping, Callable, Iterable, TypeVar
+from functools import partial
+from multiprocessing import cpu_count
+from typing import List, Union, Callable, Iterable, TypeVar
 
 import jax.numpy as jnp
-import pandas as pd
-import numpy as np
-import torch
-from tqdm import tqdm
 from multiprocess.pool import Pool, AsyncResult
-
-import yaml
+import numpy as np
+import pandas as pd
+import torch
 
 Dataframe = pd.DataFrame
 
-
 T = TypeVar('T', np.ndarray, jnp.ndarray, torch.Tensor)
-
-# def get_config(yaml_filepath: str) -> Mapping[str, Union[str, float, int]]:
-#     """
-#     Parses YAML file and returns config dictionary
-#
-#     Args:
-#         yaml_filepath: file path to yaml config
-#
-#     Returns:
-#         A dictionary of experiment configuration settings
-#     """
-#     with open(yaml_filepath, 'rb') as f:
-#         return yaml.safe_load(f)
 
 
 def return_tensor(x: np.ndarray, return_as: str, dtype=None):
@@ -50,25 +32,47 @@ read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8')
 sorted_dict = partial(sorted, key=lambda item: item[1], reverse=True)
 
 
-def multiprocess(f: Callable, args: Iterable, n_workers=None) -> AsyncResult:
+def multiprocess_multiargs(
+    f: Callable, args: Iterable, n_workers=cpu_count()) -> AsyncResult:
     with Pool(n_workers) as p:
         res = p.starmap_async(f, args)
         return res.get()
 
 
-def remap_dataframe_dtypes(df: Dataframe, cols: List[str]) -> Dataframe:
-    for c in tqdm(cols):
-        tmp_col = df[c].apply(lambda x: literal_eval(x))
-        for d in tmp_col:
-            if len(d) > 1:
-                new_col = reduce(lambda x, y: x + literal_eval(y), d, [])
-                d = new_col
-            else:
-                continue
-        df[c] = tmp_col
+def multiprocess_dataset(f: Callable, dataset: Dataframe,
+                         **kwargs) -> List[Dataframe]:
+    """Multiprocess datasets with number of available CPUs.
 
-    # IMPORTANT: otherwise dataframe will be saved with strings again
-    df.to_pickle('data/tmp/converted.pickle')
+    Args:
+        f - function to apply to datasets
+        dataset - dataset to split in `size // number of cpus`
+        kwargs - kwargs to fixate function call
 
-    # df.to_csv('data/tmp/converted.tsv', sep='\t', encoding='utf8')
-    return df
+    Returns:
+        multiprocessing result
+    """
+
+    # fixate function arguments to process with multiprocessing, if fixating args
+    # not suitable check `multiprocess_multiargs`
+    fn = partial(f, **kwargs)
+
+    def split_jobs(dataset: Dataframe) -> Union[List[Dataframe], int]:
+        """Split dataset to size of number of cpus available"""
+        df = dataset
+        n_cpus = cpu_count()
+        sets = []
+        split_at = len(df) // n_cpus
+
+        for _ in range(n_cpus):
+            new_frame = df.sample(split_at)
+            sets.append(new_frame)
+            df = df.drop(new_frame.index)
+
+        return sets, split_at
+
+    data, chunk_size = split_jobs(dataset)
+
+    with Pool(processes=None) as p:
+        res = p.map(fn, data, chunksize=chunk_size)
+
+    return res

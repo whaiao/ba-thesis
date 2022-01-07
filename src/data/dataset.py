@@ -24,7 +24,7 @@ from spacy.tokens.doc import Doc
 from multiprocess.pool import AsyncResult
 from tqdm import tqdm
 
-from src.utils import multiprocess, remap_dataframe_dtypes, read_tsv
+from src.utils import multiprocess, read_tsv
 # from src.data.preprocessing import social_chem
 
 # dtypes used in this module
