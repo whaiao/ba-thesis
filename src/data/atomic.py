@@ -198,10 +198,11 @@ def parse(atomic: Dataframe,
     df = atomic
     print(f'Start {parse_type} parsing')
     parses = []
-    for i, t in enumerate(df[col], start=1):
+    for i, t in enumerate(df[col], start=0):
+        tmp = fn(t) if isinstance(t, str) else None
         if i % 5000 == 0:
             print('step ', i)
-        tmp = fn(t) if isinstance(t, str) else None
+            print('Current sample: ', tmp)
         parses.append(tmp)
     df[f'{col}-{parse_type}'] = parses
     if save:
@@ -249,20 +250,17 @@ def find_relations(atomic: Dataframe) -> Dataframe:
 
 # Testing area
 if __name__ == "__main__":
+    from sys import argv
     atomic = load_atomic_data(save=False)
     atomic = fill_placeholders(atomic)
-    srl = multiprocess_dataset(parse,
-                               atomic,
-                               save=False,
-                               col='tail',
-                               parse_type='srl')
-    with open('./atomic_srl.pickle', 'wb') as f:
-        pickle.dump(srl, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    dp = multiprocess_dataset(parse,
-                              atomic,
-                              save=False,
-                              col='tail',
-                              parse_type='dp')
-    with open('./atomic_dp.pickle', 'wb') as f:
-        pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
+    if argv[-1] == 'mp':
+        # we only need the dependency parse
+        dp = multiprocess_dataset(parse,
+                                  atomic,
+                                  save=False,
+                                  col='tail',
+                                  parse_type='dp')
+        with open('./atomic_dp.pickle', 'wb') as f:
+            pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
+    else:
+        srl = parse(atomic, save=True, col='tail', parse_type='dp')

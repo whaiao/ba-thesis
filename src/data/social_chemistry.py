@@ -131,19 +131,25 @@ def find_relations(soc_chem: Dataframe, column: str) -> Dataframe:
 
 
 if __name__ == "__main__":
+    from sys import argv
     soc_chem = load_social_chemistry_data(save=False)
-    dp = multiprocess_dataset(parse,
-                              soc_chem,
-                              col=['situation', 'action'],
-                              parse_type='dp',
-                              save=False)
-    with open(f'{DATA_ROOT}/social_chemistry/dp.pickle', 'wb') as f:
-        pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    srl = multiprocess_dataset(parse,
-                               soc_chem,
-                               col=['situation', 'action'],
-                               parse_type='srl',
-                               save=False)
-    with open(f'{DATA_ROOT}/social_chemistry/srl.pickle', 'wb') as f:
-        pickle.dump(srl, f, protocol=pickle.HIGHEST_PROTOCOL)
+    if argv[-1] == 'mp':
+        #         dp = multiprocess_dataset(parse,
+        #                                   soc_chem,
+        #                                   col=['situation', 'action'],
+        #                                   parse_type='dp',
+        #                                   save=False)
+        #         with open(f'{DATA_ROOT}/social_chemistry/dp.pickle', 'wb') as f:
+        #             pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        srl = multiprocess_dataset(parse,
+                                   soc_chem,
+                                   col=['situation', 'action'],
+                                   parse_type='srl',
+                                   save=False)
+        with open(f'{DATA_ROOT}/social_chemistry/srl.pickle', 'wb') as f:
+            pickle.dump(srl, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    else:
+        srl = parse(soc_chem, 'srl', ['situation'], save=True)
