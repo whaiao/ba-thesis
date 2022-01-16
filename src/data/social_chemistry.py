@@ -1,8 +1,9 @@
 import pickle
 from typing import List
-from src.constants import DATA_ROOT
-from src.utils import multiprocess_dataset, read_tsv
 
+from tqdm.std import tqdm
+from src.constants import DATA_ROOT
+from src.utils import read_tsv
 import pandas as pd
 
 Dataframe = pd.DataFrame
@@ -75,18 +76,20 @@ def parse(soc_chem: Dataframe,
     df = soc_chem
     print(f'Start {parse_type} parsing')
     for c in col:
-        parses = []
-        for t in df[c]:
+        parses = {}
+        for i, t in enumerate(tqdm(df[c].unique()), start=0):
             if isinstance(t, str):
                 tmp = fn(t) if t != '' else None
             else:
                 tmp = None
-            parses.append(tmp)
-        df[f'{c}-{parse_type}'] = parses
 
-    if save:
-        df.to_pickle(
-            f'{DATA_ROOT}/social_chemistry/parse-{col}-{parse_type}.pickle')
+            if i % 500 == 0:
+                print('Sample :', tmp)
+            parses[t] = tmp
+        
+        if save:
+            with open(f'{DATA_ROOT}/social_chemistry/parse-{col}-{parse_type}.pickle', 'wb') as p:
+                pickle.dump(parses, p)
     return df
 
 
@@ -131,25 +134,5 @@ def find_relations(soc_chem: Dataframe, column: str) -> Dataframe:
 
 
 if __name__ == "__main__":
-    from sys import argv
     soc_chem = load_social_chemistry_data(save=False)
-
-    if argv[-1] == 'mp':
-        #         dp = multiprocess_dataset(parse,
-        #                                   soc_chem,
-        #                                   col=['situation', 'action'],
-        #                                   parse_type='dp',
-        #                                   save=False)
-        #         with open(f'{DATA_ROOT}/social_chemistry/dp.pickle', 'wb') as f:
-        #             pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        srl = multiprocess_dataset(parse,
-                                   soc_chem,
-                                   col=['situation', 'action'],
-                                   parse_type='srl',
-                                   save=False)
-        with open(f'{DATA_ROOT}/social_chemistry/srl.pickle', 'wb') as f:
-            pickle.dump(srl, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    else:
-        srl = parse(soc_chem, 'srl', ['situation'], save=True)
+    srl = parse(soc_chem, 'srl', ['situation'], save=True)

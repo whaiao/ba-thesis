@@ -39,7 +39,6 @@ class DependencyParse(NamedTuple):
     head: str
     head_pos: str
     children: List[Token]
-    doc: Doc
 
 
 class NounChunk(NamedTuple):
@@ -64,7 +63,7 @@ def nlp(from_data: Union[Dataframe, Data], target_columns: List[str],
     raise NotImplementedError('this still needs to be implemented')
 
 
-def dependency_parse(from_sentence: str) -> List[DependencyParse]:
+def dependency_parse(from_sentence: str) -> dict[Doc, str]:
     """Dependency parse given documents. Saves a pickled file to `data/feature` folder
     See (Spacy Doc)[https://spacy.io/models/en#en_core_web_lg-labels]
 
@@ -84,10 +83,9 @@ def dependency_parse(from_sentence: str) -> List[DependencyParse]:
     # IMPORTANT! tokens cannot be pickled
     sentence = from_sentence
     doc = NLP(sentence)
-    parse = [
-        DependencyParse(t.text, t.pos_, t.dep_, t.head.text, t.head.pos_,
-                        [child for child in t.head.children], doc) for t in doc
-    ]
+    parse = {
+        doc: ['-'.join(t.dep_ for t in doc)]
+    }
 
     return parse
 
@@ -181,7 +179,7 @@ def display_dependency_parse(doc: Doc):
 def srl(
     sentence: str,
     predictor: Predictor = SRLPREDICTOR
-) -> Tuple[List[str], List[SemanticRoleLabel]]:
+    ) -> List[SemanticRoleLabel]:
     """Uses AllenNLP semantic role labeling model to tag sentence
 
     Args:
@@ -197,4 +195,4 @@ def srl(
         verbs.append(
             SemanticRoleLabel(verb['description'], verb['verb'], verb['tags']))
 
-    return (pred['words'], verbs)
+    return verbs

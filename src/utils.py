@@ -56,10 +56,11 @@ def multiprocess_dataset(f: Callable, dataset: Dataframe,
     # not suitable check `multiprocess_multiargs`
     fn = partial(f, **kwargs)
 
-    def split_jobs(dataset: Dataframe) -> Union[List[Dataframe], int]:
+    def split_jobs(dataset: Dataframe,
+                   n_workers: int = 4) -> Union[List[Dataframe], int, int]:
         """Split dataset to size of number of cpus available"""
         df = dataset
-        n_cpus = cpu_count()
+        n_cpus = cpu_count() if n_workers is None else n_workers
         sets = []
         split_at = len(df) // n_cpus
 
@@ -68,11 +69,11 @@ def multiprocess_dataset(f: Callable, dataset: Dataframe,
             sets.append(new_frame)
             df = df.drop(new_frame.index)
 
-        return sets, split_at
+        return sets, split_at, n_cpus
 
-    data, chunk_size = split_jobs(dataset)
+    data, chunk_size, n_cpus = split_jobs(dataset)
 
-    with Pool(processes=None) as p:
-        res = p.map(fn, data, chunksize=chunk_size)
+    with Pool(processes=n_cpus) as p:
+        res = p.map(fn, data)  # , chunksize=chunk_size)
 
     return res
