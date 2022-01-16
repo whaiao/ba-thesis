@@ -184,7 +184,7 @@ def parse(atomic: Dataframe,
         dataframe with added parse column
     """
     assert parse_type in ['srl', 'dp'], 'Parse type supplied not implemented'
-    assert col in atomic.columns
+    assert col in atomic.columns or col is None  # only use None if `pd.Series` is supplied
 
     if parse_type == 'srl':
         from src.nlp import srl
@@ -198,15 +198,24 @@ def parse(atomic: Dataframe,
     df = atomic
     print(f'Start {parse_type} parsing')
     parses = []
-    for i, t in enumerate(df[col], start=0):
-        tmp = fn(t) if isinstance(t, str) else None
-        if i % 5000 == 0:
-            print('step ', i)
-            print('Current sample: ', tmp)
-        parses.append(tmp)
-    df[f'{col}-{parse_type}'] = parses
+
+    if col is None:
+        for i, t in enumerate(df, start=0):
+            tmp = fn(t) if isinstance(t, str) else None
+            if i % 500 == 0:
+                print('step ', i)
+                print('Sample ', tmp)
+        df[f'{col}-{parse_type}'] = parses
+    else:
+        for i, t in enumerate(df[col], start=0):
+            tmp = fn(t) if isinstance(t, str) else None
+            if i % 5000 == 0:
+                print('step ', i)
+                print('Current sample: ', tmp)
+            parses.append(tmp)
+        df[f'{col}-{parse_type}'] = parses
     if save:
-        df.to_pickle(f'{DATA_ROOT}/atomic/parse-{col}-{parse_type}.pickle')
+        df.to_pickle(f'{DATA_ROOT}/atomic/parse-{parse_type}.pickle')
     return df
 
 
@@ -253,14 +262,15 @@ if __name__ == "__main__":
     from sys import argv
     atomic = load_atomic_data(save=False)
     atomic = fill_placeholders(atomic)
+    unique = atomic['head'].unique()
     if argv[-1] == 'mp':
         # we only need the dependency parse
         dp = multiprocess_dataset(parse,
-                                  atomic,
+                                  unique,
                                   save=False,
-                                  col='tail',
+                                  col=None,
                                   parse_type='dp')
         with open('./atomic_dp.pickle', 'wb') as f:
             pickle.dump(dp, f, protocol=pickle.HIGHEST_PROTOCOL)
     else:
-        srl = parse(atomic, save=True, col='tail', parse_type='dp')
+        srl = parse(unique, save=True, col=None, parse_type='dp')
