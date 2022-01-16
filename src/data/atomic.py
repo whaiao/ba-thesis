@@ -1,18 +1,20 @@
 """Atomic Processing Utils"""
 
+from pprint import pprint
 from src.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
-from src.utils import multiprocess_dataset
+from src.utils import sorted_dict
 
+from collections import defaultdict, Counter
 from functools import partial
 from glob import iglob
 import pickle
 from random import choice
 import re
-from typing import Dict, List, NamedTuple, Tuple, Callable
+from typing import Dict, List, NamedTuple, Tuple
 
-from multiprocess import Pool
 import pandas as pd
 from tqdm import tqdm
+from spacy.tokens.doc import Doc
 
 read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8', header=None)
 Dataframe = pd.DataFrame
@@ -147,7 +149,15 @@ def fill_placeholders(atomic: Dataframe,
     df = atomic
     names = PNAME_SUB
 
+    def fill_obj(row):
+        """Fills ___ placeholder"""
+        if row['relation'] == 'isFilledBy':
+            return row['head'].replace('___', row['tail'])
+        else:
+            return row['head']
+
     def replace(x: str, placeholder: str, replace_with: str) -> str:
+        """Replaces Person ϵ [X-Z] with natural names"""
         if isinstance(x, str) and re.search(placeholder, x) is not None:
             s = re.sub(placeholder, replace_with, x)
             return s
@@ -164,6 +174,13 @@ def fill_placeholders(atomic: Dataframe,
         # do not allow duplicate names
         names.remove(name)
         re.purge()
+
+    for i, row in df.iterrows():
+        df.loc[i, 'head'] = fill_obj(row)
+
+    # TODO: can be done after parsing
+    # filter remaining ___ placeholder values (they are not important for our dependency_parses
+    # df = df[~df['head'].str.contains('___')]
 
     return df
 
@@ -212,6 +229,29 @@ def parse(atomic: Dataframe,
     return df
 
 
+def count_dict(from_pickle: str) -> tuple[Dict[str, int], Dict[str, List[Doc]]]:
+    """Returns a count dictionary and a reduced dict to parse structure
+
+    Args:
+        from_pickle: path to pickle file
+
+    Returns:
+        - dependency parse structure -> count
+        - dependency parse structure -> list of collected spacy documents"""
+
+
+    with open(from_pickle, 'rb') as p:
+        # doc -> dep_parse
+        data = pickle.load(p)
+
+    counter = Counter([parse for parse in data.values()])
+    gatherer = defaultdict(list)
+    for k, v in data.items():
+        gatherer[v].append(k)
+
+    return (counter, gatherer)
+
+
 def find_relations(atomic: Dataframe) -> Dataframe:
     """Go through atomic tail parses and extract objects to look up in head
 
@@ -252,7 +292,6 @@ def find_relations(atomic: Dataframe) -> Dataframe:
 
 # Testing area
 if __name__ == "__main__":
-    from sys import argv
-    atomic = load_atomic_data(save=False)
-    atomic = fill_placeholders(atomic)
-    parse(atomic, save=True, col='head', parse_type='dp')
+    # atomic = load_atomic_data(save=False)
+    # atomic = fill_placeholders(atomic)
+    # parse(atomic, save=True, col='head', parse_type='dp')

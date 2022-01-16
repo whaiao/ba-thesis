@@ -63,7 +63,7 @@ def nlp(from_data: Union[Dataframe, Data], target_columns: List[str],
     raise NotImplementedError('this still needs to be implemented')
 
 
-def dependency_parse(from_sentence: str) -> dict[Doc, str]:
+def dependency_parse(from_sentence: str, return_dep: bool = False) -> dict[Doc, str]:
     """Dependency parse given documents. Saves a pickled file to `data/feature` folder
     See (Spacy Doc)[https://spacy.io/models/en#en_core_web_lg-labels]
 
@@ -71,7 +71,8 @@ def dependency_parse(from_sentence: str) -> dict[Doc, str]:
         from_sentence: sentence to parse
 
     Returns:
-        list of dependency parse named tuples containing:
+        - doc -> dependency parse structure joined by -
+        (opt) list of dependency parse named tuples containing:
             - token text
             - token's POS tag
             - token dependency relation
@@ -80,12 +81,15 @@ def dependency_parse(from_sentence: str) -> dict[Doc, str]:
             - token's head children
             - `Spacy` document class
     """
-    # IMPORTANT! tokens cannot be pickled
+    # IMPORTANT! tokens cannot be pickled, must pickle Doc instead
     sentence = from_sentence
     doc = NLP(sentence)
     parse = {
-        doc: ['-'.join(t.dep_ for t in doc)]
+        doc: '-'.join(t.dep_ for t in doc)
     }
+
+    if return_dep:
+        return parse, [DependencyParse(t.text, t.pos_, t.dep_, t.head.text, t.head.pos_, [c for c in t.head.children]) for t in doc]
 
     return parse
 
