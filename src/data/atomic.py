@@ -1,8 +1,6 @@
 """Atomic Processing Utils"""
 
-from pprint import pprint
 from src.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
-from src.utils import sorted_dict
 
 from collections import defaultdict, Counter
 from functools import partial
@@ -15,6 +13,7 @@ from typing import Dict, List, NamedTuple, Tuple
 import pandas as pd
 from tqdm import tqdm
 from spacy.tokens.doc import Doc
+import spacy.symbols as S
 
 read_tsv = partial(pd.read_csv, sep='\t', encoding='utf8', header=None)
 Dataframe = pd.DataFrame
@@ -229,7 +228,8 @@ def parse(atomic: Dataframe,
     return df
 
 
-def count_dict(from_pickle: str) -> tuple[Dict[str, int], Dict[str, List[Doc]]]:
+def count_dict(
+        from_pickle: str) -> tuple[Dict[str, int], Dict[str, List[Doc]]]:
     """Returns a count dictionary and a reduced dict to parse structure
 
     Args:
@@ -238,7 +238,6 @@ def count_dict(from_pickle: str) -> tuple[Dict[str, int], Dict[str, List[Doc]]]:
     Returns:
         - dependency parse structure -> count
         - dependency parse structure -> list of collected spacy documents"""
-
 
     with open(from_pickle, 'rb') as p:
         # doc -> dep_parse
@@ -295,3 +294,18 @@ if __name__ == "__main__":
     # atomic = load_atomic_data(save=False)
     # atomic = fill_placeholders(atomic)
     # parse(atomic, save=True, col='head', parse_type='dp')
+    with open('data/atomic/dp.pickle', 'rb') as p:
+        parses = pickle.load(p)
+
+    verbs = set()
+    objects = set()
+    for d in parses.keys():
+        for t in d:
+            print(t, type(t))
+            if t.pos == S.VERB:
+                verbs.add(t.lemma_)
+            elif 'obj' in t.dep_:
+                objects.add(t.text)
+    for f, o in tqdm(zip(['verbs', 'objects'], [verbs, objects])):
+        with open(f'data/atomic/{f}.pickle', 'wb') as p:
+            pickle.dump(o, p)

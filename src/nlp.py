@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Tuple, Mapping, NamedTuple, Set, Union, List
+from typing import Callable, Dict, Tuple, Mapping, NamedTuple, Set, Union, List
 
 from allennlp.predictors.predictor import Predictor
 # is needed for the predictor class
@@ -27,6 +27,7 @@ except:
 Dataframe = pd.DataFrame
 Data = Mapping[int, NamedTuple]
 # allennlp srl model
+
 SRLPREDICTOR = Predictor.from_path(
     "https://storage.googleapis.com/allennlp-public-models/structured-prediction-srl-bert.2020.12.15.tar.gz"
 )
@@ -57,13 +58,10 @@ class SemanticRoleLabel(NamedTuple):
 # -
 
 
-def nlp(from_data: Union[Dataframe, Data], target_columns: List[str],
-        task: Callable):
-    # TODO: gather all functions in here
-    raise NotImplementedError('this still needs to be implemented')
-
-
-def dependency_parse(from_sentence: str, return_dep: bool = False) -> dict[Doc, str]:
+def dependency_parse(
+        from_sentence: str,
+        return_dep: bool = False
+) -> Union[Dict[Doc, str], List[DependencyParse]]:
     """Dependency parse given documents. Saves a pickled file to `data/feature` folder
     See (Spacy Doc)[https://spacy.io/models/en#en_core_web_lg-labels]
 
@@ -84,17 +82,18 @@ def dependency_parse(from_sentence: str, return_dep: bool = False) -> dict[Doc, 
     # IMPORTANT! tokens cannot be pickled, must pickle Doc instead
     sentence = from_sentence
     doc = NLP(sentence)
-    parse = {
-        doc: '-'.join(t.dep_ for t in doc)
-    }
+    parse = {doc: '-'.join(t.dep_ for t in doc)}
 
     if return_dep:
-        return parse, [DependencyParse(t.text, t.pos_, t.dep_, t.head.text, t.head.pos_, [c for c in t.head.children]) for t in doc]
+        return parse, [
+            DependencyParse(t.text, t.pos_, t.dep_, t.head.text, t.head.pos_,
+                            [c for c in t.head.children]) for t in doc
+        ]
+    else:
+        return parse
 
-    return parse
 
-
-def extract_verbs(from_data: Union[Dataframe, Data], column: str,
+def extract_verbs(from_data: Union[Dataframe, Data, set], column: str,
                   dependent_on: S) -> Set[str]:
     """Returns the set of lemmatized verbs dependent on given dependency relations.
     See: https://universaldependencies.org/u/dep/
@@ -108,9 +107,9 @@ def extract_verbs(from_data: Union[Dataframe, Data], column: str,
         set of lemmatized verbs
     """
     verbs = set()
-    assert isinstance(from_data, Dataframe)
-    assert isinstance(column, str)
-    data = from_data[column]
+    if isinstance(from_data, pd.DataFrame):
+        data = from_data[column]
+    data = from_data
     for i in data:
         doc = NLP(i)
         for t in doc:
@@ -180,10 +179,8 @@ def display_dependency_parse(doc: Doc):
     displacy.render(doc)
 
 
-def srl(
-    sentence: str,
-    predictor: Predictor = SRLPREDICTOR
-    ) -> List[SemanticRoleLabel]:
+def srl(sentence: str,
+        predictor: Predictor = SRLPREDICTOR) -> List[SemanticRoleLabel]:
     """Uses AllenNLP semantic role labeling model to tag sentence
 
     Args:

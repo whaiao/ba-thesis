@@ -86,9 +86,11 @@ def parse(soc_chem: Dataframe,
             if i % 500 == 0:
                 print('Sample :', tmp)
             parses[t] = tmp
-        
+
         if save:
-            with open(f'{DATA_ROOT}/social_chemistry/parse-{col}-{parse_type}.pickle', 'wb') as p:
+            with open(
+                    f'{DATA_ROOT}/social_chemistry/parse-{col}-{parse_type}.pickle',
+                    'wb') as p:
                 pickle.dump(parses, p)
     return df
 
@@ -135,4 +137,4 @@ def find_relations(soc_chem: Dataframe, column: str) -> Dataframe:
 
 if __name__ == "__main__":
     soc_chem = load_social_chemistry_data(save=False)
-    srl = parse(soc_chem, 'srl', ['situation'], save=True)
+    parse(soc_chem, 'dp', ['situation', 'action'], save=True)
