@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import reduce
 import re
 from typing import List, Union
 
@@ -70,10 +71,13 @@ class DialoGPTDataset(Dataset):
 
     def construct_data(self):
         def construct_conv(row: List[str]) -> List[int]:
-            return [
+            conv = [
                 self.tokenizer.encode(x) + [self.tokenizer.eos_token_id]
                 for x in row if x is not None
             ]
+
+            # flatten output
+            return list(reduce(lambda a, v: a + v, conv, []))
 
         self.data = []
         for _, row in self.df.iterrows():
