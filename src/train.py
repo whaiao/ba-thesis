@@ -1,16 +1,28 @@
 import functools
 
-import torch.nn as nn
+from accelerate import Accelerator
+from torch.utils.data.dataloader import DataLoader
+from transformers import PreTrainedModel, DataCollatorWithPadding
 
 import jax
 import numpy as np
 import optax
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
 from .dtypes import *
+
+DataCollator = DataCollatorWithPadding
+LossFn = nn.Module
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device(
+    'cpu')
 
 
 class JAXTrainer:
-    def __init__(self, net_init, loss_fn, optimizer: optax.GradientTransformation):
+    def __init__(self, net_init, loss_fn,
+                 optimizer: optax.GradientTransformation):
         self._net_init = net_init
         self._loss_fn = loss_fn
         self._opt = optimizer
@@ -52,14 +64,53 @@ class JAXTrainer:
 
 
 class TorchTrainer:
-    def __init__(self, model: nn.Module, optimizer, data, cfg: dict):
-        self.model = model(**cfg)
-        self.optim = optimizer()
-        self.data = data
+    def __init__(self,
+                 model: PreTrainedModel,
+                 optimizer: optim.Optimizer,
+                 scheduler,
+                 criterion: LossFn,
+                 collator: DataCollator,
+                 train_data: DataLoader,
+                 val_data: DataLoader,
+                 test_data: DataLoader,
+                 objective: str,
+                 accelerate: bool = False):
+        self.model = model
+        self.optim = optimizer(model.parameters())
+        self.scheduler = scheduler
+        self.criterion = criterion
+        self.collator = collator
+        self.train_data = train_data
+        self.val_data = val_data
+        self.test_data = test_data
+        self.objective = objective
+
+        self.accelerator = None if accelerate == False else Accelerator()
+
+    def _init_accelerator(self, datasplit: DataLoader):
+        self.model, self.optimizer, datasplit = self.accelerator.prepare(
+            self.model, self.optim, datasplit)
 
     def train(self):
         self.model.train()
-        pass
+        for i, batch in enumerate(self.train_data):
+            loss = self.step(batch)
+
+    def step(self, batch):
+        if self.objective == 'classifications':
+            x, Y = batch.to(device)
+            self.model.zero_grad()
+            out = self.model(**x, labels=Y)
+            loss = out.loss
+            if self.accelerator is None:
+                loss.backward()
+            else:
+                self.accelerator.backward(loss)
+
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+        return loss
 
     def eval(self):
         self.model.eval()
