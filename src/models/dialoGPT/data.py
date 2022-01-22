@@ -57,7 +57,7 @@ class DialoGPTDataset(Dataset):
         columns = ['response', 'context']
         columns = columns + ['context/' + str(i) for i in range(self.n_turns)]
         dialogues = []
-        for split, dataset in self.dataset.items():
+        for _, dataset in self.dataset.items():
             for sample in dataset:
                 row = [
                     turn for i, turn in enumerate(sample)
