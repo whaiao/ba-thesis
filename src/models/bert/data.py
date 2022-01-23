@@ -7,6 +7,7 @@ from transformers import AutoTokenizer, DataCollatorWithPadding
 import datasets
 from datasets import load_dataset
 from datasets.dataset_dict import DatasetDict
+from transformers.tokenization_utils import PreTrainedTokenizer
 
 HuggingfaceDataset = DatasetDict
 TOKENIZER = AutoTokenizer.from_pretrained('bert-base-uncased')
@@ -83,7 +84,8 @@ class DailyDialogDataset(Dataset):
         return dataloaders 
 
 
-def create_datasets(batch_size: int):
+def create_datasets(tokenizer: PreTrainedTokenizer):
+    TOKENIZER = tokenizer
     def tokenizer_fn(sample):
         """This takes one sample and adds it to all datasets.
         Data Collator only takes arguments which are suitable for the

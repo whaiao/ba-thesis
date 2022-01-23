@@ -1,21 +1,38 @@
-import torch
-from transformers import AutoModelForSequenceClassification, DataCollatorWithPadding, Trainer, TrainingArguments
+from sys import argv
 
-from src.models.bert.data import DailyDialogDataset, TOKENIZER
+import numpy as np
 
-data_collator = DataCollatorWithPadding(tokenizer=TOKENIZER)
-args = TrainingArguments('checkpoints/turn_classifier/bert')
-model = AutoModelForSequenceClassification.from_pretrained('bert_base_uncased',
+from datasets import load_metric
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, Trainer, TrainingArguments
+
+from src.models.bert.data import create_datasets
+
+checkpoint = argv[-1]
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+
+data = create_datasets(tokenizer)
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+args = TrainingArguments(f'{checkpoint}-dailydialog-turn-classifier',
+                         evaluation_strategy='epoch',
+                         push_to_hub=True)
+
+model = AutoModelForSequenceClassification.from_pretrained(checkpoint,
                                                            num_labels=5)
 
-train_loader, val_loader, test_loader = DailyDialogDataset.create_dataloaders(
-    1)
+
+def compute_metrics(pred):
+    metrics = load_metric('accuracy')
+    logits, labels = pred
+    predictions = np.argmax(logits, dim=-1)
+    return metrics.compute(predictions=predictions, references=labels)
+
 
 trainer = Trainer(model,
                   args,
-                  train_dataset=train_loader,
-                  eval_dataset=val_loader,
+                  train_dataset=data['train'],
+                  eval_dataset=data['validation'],
                   data_collator=data_collator,
-                  tokenizer=TOKENIZER)
+                  tokenizer=tokenizer,
+                  compute_metrics=compute_metrics)
 
 trainer.train()
