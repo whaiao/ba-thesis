@@ -34,14 +34,25 @@
                        ^Dataframe atomic
                        [srl-model None]
                        ^str [matching-strategy "verbs"]]
-  "Creates overlap between selected strategy and other stuff"
+  "Creates overlap between selected strategy and other stuff
+    Args:
+      x - input sentence
+      atomic - atomic dataframe to look up references
+      srl-model - model for srl parsing
+      matching-strategy - what candidates to retrieve can be:
+        - verbs
+        - objects
+        - parses
+    "
   (setv parses (srl-model x)
         phrases (extract-phrase parses))
   
+  ; TODO: overlap filter verbs from dataframe
   (for [(, phrase verb) phrases]
     (print verb)))
 
 
+; testing area
 (setv path (+ DATA-ROOT "/social_chemistry/")
       data (with [p (open f"{path}srl.pickle" "rb")] (.load pickle p)))
 
