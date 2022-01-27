@@ -27,6 +27,7 @@ from transformers import AutoModelForCausalLM, PreTrainedModel, AutoTokenizer, T
 
 HuggingfaceDataset = DatasetDict
 CHECKPOINT = 'microsoft/DialoGPT-medium'
+#CHECKPOINT = 'checkpoints/dialoGPT-small-empatheticdialogues-generation/checkpoint-32000'
 TOKENIZER = AutoTokenizer.from_pretrained(CHECKPOINT)
 model = AutoModelForCausalLM.from_pretrained(CHECKPOINT)
 TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
@@ -148,12 +149,12 @@ class DialoGPTDataset(Dataset):
 
 data = DialoGPTDataset.empathetic_dialogues(None).dataset
 data_collator = DataCollatorWithPadding(tokenizer=TOKENIZER)
-args = TrainingArguments('dialoGPT-medium-empatheticdialogues-generation',
-                         evaluation_strategy='epoch',
+args = TrainingArguments('checkpoints/dialoGPT-medium-empatheticdialogues-generation',
+                         evaluation_strategy='no',
                          hub_token='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',
                          push_to_hub=False,
-                         per_device_train_batch_size=2,
-                         per_device_eval_batch_size=2)
+                         per_device_train_batch_size=1,
+                         per_device_eval_batch_size=1)
 
 
 def compute_metrics(pred):

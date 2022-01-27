@@ -7,8 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1wYL8ZUQrbxxGDjKlb2tjk0iWlfXvx6YO
 """
 
-!pip install --upgrade transformers tokenizers datasets accelerate wandb
-
 from typing import List, Tuple
 
 import numpy as np
@@ -27,16 +25,11 @@ from datasets import load_dataset
 from datasets.dataset_dict import DatasetDict
 
 HuggingfaceDataset = DatasetDict
-TOKENIZER = AutoTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, padding=True)
+TOKENIZER = AutoTokenizer.from_pretrained('benjaminbeilharz/distilbert-base-uncased-empatheticdialogues-sentiment-classifier', truncation=True, padding=True)
 
 import wandb
-hub_token = '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'
-
-!wandb login
 
 wandb.init(project='ba-thesis', entity='benjaminbeilharz')
-
-!huggingface-cli login
 
 # Commented out IPython magic to ensure Python compatibility.
 # %%capture
@@ -50,8 +43,6 @@ wandb.init(project='ba-thesis', entity='benjaminbeilharz')
 # !git config --global credential.helper store
 
 data = load_dataset('empathetic_dialogues')
-
-data
 
 def tokenizer_function(sample):
     return TOKENIZER(sample['utterance'], truncation=True)
@@ -68,7 +59,6 @@ def convert_labels(sample):
     return {'labels': label}
 
 tokenized_data = tokenized_data.map(convert_labels, batched=True).shuffle()
-tokenized_data
 
 def compute_metrics(preds):
     metric = datasets.load_metric('accuracy')
@@ -77,12 +67,15 @@ def compute_metrics(preds):
     return metric.compute(predictions=predictions, references=labels)
 
 data_collator = DataCollatorWithPadding(tokenizer=TOKENIZER)
-model = AutoModelForSequenceClassification.from_pretrained('distilbert-base-uncased', num_labels=32)#, num_labels=5)
+model = AutoModelForSequenceClassification.from_pretrained('benjaminbeilharz/distilbert-base-uncased-empatheticdialogues-sentiment-classifier', num_labels=32)
 
-args = TrainingArguments('distilbert-base-uncased-empatheticdialogues-sentiment-classifier', 
+args = TrainingArguments('checkpoints/distilbert-base-uncased-empatheticdialogues-sentiment-classifier', 
+                        per_device_train_batch_size=12,
+                        per_device_eval_batch_size=12,
+                         load_best_model_at_end=True,
+                         num_train_epochs=12.,
+                         save_strategy='epoch',
                          evaluation_strategy='epoch',
-                         push_to_hub=True, 
-                         hub_token=hub_token,
                          report_to='wandb')
 trainer = Trainer(
     model=model,
