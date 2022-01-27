@@ -1,0 +1,24 @@
+{
+    "os": "Linux-5.4.0-91-generic-x86_64-with-glibc2.31",
+    "python": "3.9.0",
+    "heartbeatAt": "2022-01-25T23:01:01.489585",
+    "startedAt": "2022-01-25T23:01:00.270944",
+    "docker": null,
+    "gpu": "NVIDIA GeForce GTX 1080 Ti",
+    "gpu_count": 4,
+    "cpu_count": 48,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/workspace/students/beilharz/ba-thesis/src/models/sentiment/senti_bert.py",
+    "codePath": "src/models/sentiment/senti_bert.py",
+    "git": {
+        "remote": "https://github.com/benjaminbeilharz/ba-thesis",
+        "commit": "8ba0e5b9b6c8042d1f45b7481bc4eac049623263"
+    },
+    "email": "b@beilharz.io",
+    "root": "/workspace/students/beilharz/ba-thesis",
+    "host": "gpu09",
+    "username": "beilharz",
+    "executable": "/home/students/beilharz/anaconda3/envs/hf/bin/python"
+}

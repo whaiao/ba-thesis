@@ -1,0 +1,24 @@
+{
+    "os": "Linux-5.4.0-91-generic-x86_64-with-glibc2.31",
+    "python": "3.9.0",
+    "heartbeatAt": "2022-01-25T22:42:26.992850",
+    "startedAt": "2022-01-25T22:42:25.605308",
+    "docker": null,
+    "gpu": "NVIDIA GeForce GTX 1080 Ti",
+    "gpu_count": 4,
+    "cpu_count": 48,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/workspace/students/beilharz/ba-thesis/src/models/sentiment/distilbert___ed_sentiment_classifier.py",
+    "codePath": "src/models/sentiment/distilbert___ed_sentiment_classifier.py",
+    "git": {
+        "remote": "https://github.com/benjaminbeilharz/ba-thesis",
+        "commit": "8ba0e5b9b6c8042d1f45b7481bc4eac049623263"
+    },
+    "email": "b@beilharz.io",
+    "root": "/workspace/students/beilharz/ba-thesis",
+    "host": "gpu09",
+    "username": "beilharz",
+    "executable": "/home/students/beilharz/anaconda3/envs/hf/bin/python"
+}
