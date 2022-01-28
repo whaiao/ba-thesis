@@ -80,9 +80,19 @@ def dependency_parse(
             - `Spacy` document class
     """
     # IMPORTANT! tokens cannot be pickled, must pickle Doc instead
-    sentence, origin = from_sentences
-    doc = NLP(sentence)
-    parse = {doc: {'origin': origin, 'parse': '-'.join(t.dep_ for t in doc)}}
+    if isinstance(from_sentences, list):
+        sentence, origin = from_sentences
+        doc = NLP(sentence)
+        parse = {
+            doc: {
+                'origin': origin,
+                'parse': '-'.join(t.dep_ for t in doc)
+            }
+        }
+    elif isinstance(from_sentences, str):
+        sentence = from_sentences
+        doc = NLP(sentence)
+        parse = {doc: '-'.join(t.dep_ for t in doc)}
 
     if return_dep:
         return parse, [
