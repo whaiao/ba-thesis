@@ -264,27 +264,6 @@ def create_lookup_dict(dp_parse: str = 'data/atomic/dp.pickle'):
         pickle.dump(ndict, p)
 
 
-# def reverse_replacement(doc: Doc) -> str:
-#     """Takes a document and reverts it back to ATOMIC format
-#
-#     Args:
-#         doc - `spacy` Document to revert back to ATOMIC
-#
-#     Returns:
-#         reverted string
-#     """
-#     names = PNAME_SUB
-#     placeholders = ['PersonX', 'PersonY', 'PersonZ']
-#
-#     replacement_counter = 0
-#     for token in doc:
-#         if token.text in names:
-#             x = re.sub(name, placeholders[replacement_counter], x)
-#             replacement_counter += 1
-#
-#     return x
-
-
 def count_dict(
         from_pickle: str) -> tuple[Dict[str, int], Dict[str, List[Doc]]]:
     """Returns a count dictionary and a reduced dict to parse structure
@@ -344,11 +323,3 @@ def find_relations(atomic: Dataframe) -> Dataframe:
     df['verbs'] = verb_extraction
 
     return df
-
-
-# Testing area
-if __name__ == "__main__":
-    atomic = load_atomic_data(save=False)
-    atomic = fill_placeholders(atomic)
-    print(atomic.head())
-    parse(atomic, save=True, col='head', parse_type='dp')
