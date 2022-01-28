@@ -147,6 +147,7 @@ def fill_placeholders(atomic: Dataframe,
     """
     df = atomic
     names = PNAME_SUB
+    df['origin'] = df['head']
 
     def fill_obj(row):
         """Fills ___ placeholder"""
@@ -176,6 +177,12 @@ def fill_placeholders(atomic: Dataframe,
 
     for i, row in df.iterrows():
         df.loc[i, 'head'] = fill_obj(row)
+
+    # spacy parses recognizes the underscore as a dobj
+    # for coverage i sub the triple underscores with a single one
+    # so if we want to retrieve atomic values with the dp structure
+    # we can collect more candidates for BERT score.
+    df['head'] = df['head'].apply(lambda x: x.replace('___', '_'))
 
     # TODO: can be done after parsing
     # filter remaining ___ placeholder values (they are not important for our dependency_parses
@@ -215,7 +222,11 @@ def parse(atomic: Dataframe,
     parses = {}
 
     for i, t in enumerate(tqdm(df[col].unique()), start=0):
-        tmp = fn(t) if isinstance(t, str) else None
+        if isinstance(t, str):
+            origin = df.loc[df[col] == t]['origin'].iloc[0]
+            # pass origin only for dep parse
+            tmp = fn([t, origin])
+        # tmp = fn(t) if isinstance(t, str) else None
         # dict -> Doc/str: parse
         if i % 5000 == 0:
             print('Current sample: ', tmp)
@@ -226,6 +237,52 @@ def parse(atomic: Dataframe,
             pickle.dump(parses, p)
         # df.to_pickle(f'{DATA_ROOT}/atomic/parse-{parse_type}.pickle')
     return df
+
+
+def create_lookup_dict(dp_parse: str = 'data/atomic/dp.pickle'):
+    with open(dp_parse, 'rb') as p:
+        parses = pickle.load(p)
+
+    # keys are spacy docs
+    ndict = {}
+    for p, d in parses.items():
+        tmp_verb = []
+        tmp_objs = []
+        atomic_string = d['origin']
+        for t in p:
+            if t.pos == S.VERB:
+                tmp_verb.append(t.lemma_)
+            if 'obj' in t.dep_:
+                tmp_objs.append(t.text)
+        ndict[p] = {
+            'text': atomic_string,
+            'verbs': tmp_verb,
+            'objects': tmp_objs
+        }
+
+    with open(f'data/atomic/lookup.pickle', 'wb') as p:
+        pickle.dump(ndict, p)
+
+
+# def reverse_replacement(doc: Doc) -> str:
+#     """Takes a document and reverts it back to ATOMIC format
+#
+#     Args:
+#         doc - `spacy` Document to revert back to ATOMIC
+#
+#     Returns:
+#         reverted string
+#     """
+#     names = PNAME_SUB
+#     placeholders = ['PersonX', 'PersonY', 'PersonZ']
+#
+#     replacement_counter = 0
+#     for token in doc:
+#         if token.text in names:
+#             x = re.sub(name, placeholders[replacement_counter], x)
+#             replacement_counter += 1
+#
+#     return x
 
 
 def count_dict(
@@ -291,21 +348,7 @@ def find_relations(atomic: Dataframe) -> Dataframe:
 
 # Testing area
 if __name__ == "__main__":
-    # atomic = load_atomic_data(save=False)
-    # atomic = fill_placeholders(atomic)
-    # parse(atomic, save=True, col='head', parse_type='dp')
-    with open('data/atomic/dp.pickle', 'rb') as p:
-        parses = pickle.load(p)
-
-    verbs = set()
-    objects = set()
-    for d in parses.keys():
-        for t in d:
-            print(t, type(t))
-            if t.pos == S.VERB:
-                verbs.add(t.lemma_)
-            elif 'obj' in t.dep_:
-                objects.add(t.text)
-    for f, o in tqdm(zip(['verbs', 'objects'], [verbs, objects])):
-        with open(f'data/atomic/{f}.pickle', 'wb') as p:
-            pickle.dump(o, p)
+    atomic = load_atomic_data(save=False)
+    atomic = fill_placeholders(atomic)
+    print(atomic.head())
+    parse(atomic, save=True, col='head', parse_type='dp')

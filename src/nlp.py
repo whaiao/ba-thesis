@@ -59,14 +59,14 @@ class SemanticRoleLabel(NamedTuple):
 
 
 def dependency_parse(
-        from_sentence: str,
+        from_sentences: List[str],
         return_dep: bool = False
 ) -> Union[Dict[Doc, str], List[DependencyParse]]:
     """Dependency parse given documents. Saves a pickled file to `data/feature` folder
     See (Spacy Doc)[https://spacy.io/models/en#en_core_web_lg-labels]
 
     Args:
-        from_sentence: sentence to parse
+        from_sentences: sentence to parse & pre preprocessing sentence
 
     Returns:
         - doc -> dependency parse structure joined by -
@@ -80,9 +80,9 @@ def dependency_parse(
             - `Spacy` document class
     """
     # IMPORTANT! tokens cannot be pickled, must pickle Doc instead
-    sentence = from_sentence
+    sentence, origin = from_sentences
     doc = NLP(sentence)
-    parse = {doc: '-'.join(t.dep_ for t in doc)}
+    parse = {doc: {'origin': origin, 'parse': '-'.join(t.dep_ for t in doc)}}
 
     if return_dep:
         return parse, [
