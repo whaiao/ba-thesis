@@ -1,18 +1,23 @@
-(import pickle
+(import [collections [defaultdict]]
+        pickle
+        [pprint [pprint]]
         re
-        [typing [List Dict]]
+        [typing [List Dict Callable]]
         [bert-score [BERTScorer]]
         [numpy [ndarray]]
         [pandas :as pd]
         torch
+        [src.data.atomic [Relation]]
         [src.constants [DATA-ROOT]]
         [src.nlp [srl dependency-parse NLP SemanticRoleLabel]]
         [src.utils [read-tsv]])
 
+; constants
 (setv Dataframe pd.DataFrame
-      ATOMIC (with [f (open f"{DATA-ROOT}/atomic/lookup.pickle" "rb")] (.load pickle f))
-      scorer (BERTScorer :lang "en" :rescale-with-baseline True))
-
+      lookup (with [f (open f"{DATA-ROOT}/atomic/lookup.pickle" "rb")] (.load pickle f))
+      atomic (read-tsv f"{DATA-ROOT}/atomic/processed.tsv")
+      ;scorer (BERTScorer :lang "en" :rescale-with-baseline True)) ; this is roberta
+      scorer (BERTScorer :model-type "distilbert-base-uncased" :lang "en" :rescale-with-baseline True))
 
 (defn ^(. List [str]) extract-phrases 
   [^(. List [SemanticRoleLabel]) srl-parses]
@@ -35,27 +40,42 @@
       (.append verbs (. p verb))))
   (return [verbs phrases]))
 
-(defn ^(. List [str]) search [^str query
-              ^str [matching-strategy "verbs"]]
+(defn ^(. List [str]) search 
+  [^str query
+   ^str [matching-strategy "verbs"]]
   "Searches query in ATOMIC parse lookup table"
 
   (when (= matching-strategy "verbs")
     (setv query (. (get (NLP query) 0) lemma_)
-          data (dfor [k v] (.items ATOMIC)
+          data (dfor [k v] (.items lookup)
                      :if (in query (:verbs v))
                      [k (:text v)])))
-;          data (set (lfor candidate (.values ATOMIC) 
-;                          :if (in query (:verbs candidate))
-;                          (:text candidate)))))
   (return data))
 
-(defn extract [^dict candidate]
-  "Extracts knowledge relations from ATOMIC"
-  (raise (NotImplementedError)))
+(defn ^(. List [dict]) extract-from-atomic 
+  [^(. List [str]) candidates]
+  "Extracts knowledge relations from ATOMIC
+        Args:
+            extract-from-atomic - list of queries to extract from ATOMIC
+    "
 
-(defn prepare-overlap [^str x
-                       [srl-model None]
-                       ^str [matching-strategy "verbs"]]
+  (setv res [])
+
+  (for [candidate candidates]
+    (setv data (py "atomic[atomic['head'] == candidate]")
+          entries (defaultdict list))
+    (for [[_ row] (.iterrows data)]
+      (setv relation (:relation row)
+            relation-value (get row "relation-text"))
+      (.append (get entries relation) relation-value))
+    (.append res {candidate entries}))
+
+  (return res))
+
+(defn ^(. List [str]) retrieve-overlap 
+  [^str x
+   ^Callable [srl-model srl]
+   ^str [matching-strategy "verbs"]]
   "Creates overlap between selected strategy and other stuff
     Args:
       x - input sentence
@@ -65,20 +85,28 @@
         - objects
         - parses
     "
-  (setv parses (srl x)
-        [verbs phrases] (extract-phrases parses))
+  (setv parses (srl-model x)
+        [verbs phrases] (extract-phrases parses)
+        res [])
 
-  ;; TODO: check this tomorrow -- if candidates are correctly supplied
   (when (= matching-strategy "verbs")
     (for [(, verb phrase) (zip verbs phrases)]
       (setv search-results (dfor [k v] (.items (search :query verb)) [(. k text) v])
+            ; working with placeholders vs. substituted strings?
             candidates (list (.keys search-results))
             n-cand (len candidates)
             padded-reference (lfor i (range n-cand) phrase)
+            ;; precision recall f1
             [P R F] (.score scorer :refs padded-reference
                                    :cands candidates)
             amax (.argmax torch F :dim -1))
-      (print candidates)
-      (print (get search-results (get candidates amax))))))
+      (.append res (get search-results (get candidates amax)))))
+  (return res))
 
-(prepare-overlap "i stole a bike and bought a teddy bear")
+
+; testing area
+(setv query "I have found money on the floor. Should I keep it?"
+  res (extract-from-atomic (retrieve-overlap query)))
+(print f"The query for following knowledge structure is: {query}")
+(pprint res)
+
