@@ -1,0 +1,141 @@
+The query for following knowledge structure is: i stole a bike and sold it
+[{'PersonX steals a car': defaultdict(<class 'list'>,
+                                      {'HinderedBy': ["PersonX doesn't know "
+                                                      'how to hotwire a car',
+                                                      "PersonX can't find a "
+                                                      'crowbar.',
+                                                      'The car is under guard',
+                                                      'The car has an alarm '
+                                                      'system',
+                                                      "PersonX can't hotwire "
+                                                      'the car.',
+                                                      'They have no carjacking '
+                                                      'equipment',
+                                                      'PersonY put PersonX in '
+                                                      'a jail cell.',
+                                                      "PersonX's mother caught "
+                                                      'them sneaking out.'],
+                                       'isAfter': ['PersonX needs money',
+                                                   'PersonX walks down the '
+                                                   'block',
+                                                   'PersonX sees a car'],
+                                       'isBefore': ['PersonX gets arrested',
+                                                    'PersonX drives away'],
+                                       'oEffect': ['none',
+                                                   'none',
+                                                   'Misses appointments',
+                                                   'Loses valuables'],
+                                       'oReact': ['angry',
+                                                  'depressed',
+                                                  'violated'],
+                                       'oWant': ['to recover their car',
+                                                 'to call the police',
+                                                 'their car back.',
+                                                 'to report a theft.'],
+                                       'xAttr': ['brave',
+                                                 'hopeful',
+                                                 'criminal',
+                                                 'desperate',
+                                                 'reckless',
+                                                 'evil',
+                                                 'theif',
+                                                 'shady',
+                                                 'bad'],
+                                       'xEffect': ['gets chased by police',
+                                                   'is imprisoned',
+                                                   'is chased after by police',
+                                                   'is locked up',
+                                                   'Gets chased',
+                                                   'Gets arrested'],
+                                       'xIntent': ['to joy ride',
+                                                   'to own a car',
+                                                   'to sell a stolen car',
+                                                   'make money'],
+                                       'xNeed': ['to find a car they want',
+                                                 'to break into the car',
+                                                 'know how to break into a car',
+                                                 'know what to look for'],
+                                       'xReact': ['guilt',
+                                                  'bad about themselves',
+                                                  'like a thief'],
+                                       'xWant': ['to avoid the police',
+                                                 'sell the car',
+                                                 'to get a car.',
+                                                 'to get somewhere.']})},
+ {'PersonX sells the car': defaultdict(<class 'list'>,
+                                       {'HinderedBy': ["PersonZ hasn't signed "
+                                                       'over the title',
+                                                       "Their mechanic didn't "
+                                                       'make the cosmetic '
+                                                       'repairs',
+                                                       'Person X doesn;t know '
+                                                       'the best place to list '
+                                                       'his vehicle.',
+                                                       "The brakes don't work",
+                                                       'Nobody wants to buy '
+                                                       'the car',
+                                                       'Person X needs to get '
+                                                       'it smoged before '
+                                                       'selling.',
+                                                       'PersonX cannot afford '
+                                                       'to put an ad in the '
+                                                       'paper',
+                                                       'The car is totaled'],
+                                        'isAfter': ['PersonX needs cash quick'],
+                                        'isBefore': ['PersonX pockets the '
+                                                     'cash'],
+                                        'oEffect': ['has to clean the car',
+                                                    'has to make sure it runs '
+                                                    'ok',
+                                                    'none'],
+                                        'oReact': ['satified',
+                                                   'happy',
+                                                   'happy',
+                                                   'none'],
+                                        'oWant': ['bring car to mechanic',
+                                                  'get car upraised',
+                                                  'to drive their new vehicle',
+                                                  'to get a paint job',
+                                                  'to remove the "For Sale" '
+                                                  'sign',
+                                                  'none'],
+                                        'xAttr': ['fortunate',
+                                                  'happy',
+                                                  'Desperate',
+                                                  'Hagler',
+                                                  'Smart',
+                                                  'Resourceful'],
+                                        'xEffect': ['needs a new car',
+                                                    'has extra money',
+                                                    'Person X deposits money '
+                                                    'in bank.',
+                                                    'Person X wants to pay '
+                                                    'some dues.'],
+                                        'xIntent': ['to get money',
+                                                    'need more money',
+                                                    'want to buy something '
+                                                    'else',
+                                                    'to make some money',
+                                                    'upgrade their vehicle'],
+                                        'xNeed': ['own a vehicle',
+                                                  'post an advertisment',
+                                                  'to clean the vehicle',
+                                                  'to take out an ad',
+                                                  'to speak with potential '
+                                                  'buyers',
+                                                  'plan for sell',
+                                                  'how to sell this things'],
+                                        'xReact': ['relief',
+                                                   'happy',
+                                                   'happy',
+                                                   'happy',
+                                                   'excited',
+                                                   'fulfilled'],
+                                        'xWant': ['cash a check',
+                                                  'hand over the deed',
+                                                  "to shake the buyer's hand",
+                                                  'to deposit money into the '
+                                                  'bank',
+                                                  'to buy a new car',
+                                                  'car maintained well',
+                                                  'car wants to fuel']})}]

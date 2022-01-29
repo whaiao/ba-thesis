@@ -1,0 +1,88 @@
+The query for following knowledge structure is: I have found money on the floor. Should I keep it?
+[{'PersonX never found ___': defaultdict(<class 'list'>,
+                                         {'isFilledBy': ['the body',
+                                                         'money',
+                                                         'food',
+                                                         'clothes'],
+                                          'oEffect': ['none',
+                                                      'is disappointed in '
+                                                      'personX',
+                                                      'gets frustrated',
+                                                      'none'],
+                                          'oReact': ['sad that the person/dog '
+                                                     'was never found.',
+                                                     'also lonely'],
+                                          'oWant': ['none',
+                                                    'to yell at x',
+                                                    'to help x find it',
+                                                    'none'],
+                                          'xAttr': ['worried',
+                                                    'scared',
+                                                    'unskilled',
+                                                    'unlucky',
+                                                    'Worried',
+                                                    'Sorry'],
+                                          'xEffect': ['PersonX wondered '
+                                                      'forever',
+                                                      'PersonX is distraught',
+                                                      'is treated incompetent',
+                                                      'is mistrusted',
+                                                      'gets worn out',
+                                                      'misses it'],
+                                          'xIntent': ['none', 'none'],
+                                          'xNeed': ['none',
+                                                    'keep looking',
+                                                    'cover all possible spots',
+                                                    'none'],
+                                          'xReact': ['disappointed they were '
+                                                     'never found.',
+                                                     'sad',
+                                                     'lonely'],
+                                          'xWant': ['to go home and call their '
+                                                    'friend',
+                                                    'to try again in the '
+                                                    'morning',
+                                                    'to get help looking',
+                                                    'to replace the item',
+                                                    'to lodge a missing '
+                                                    'complaint',
+                                                    'to reveal to everybody '
+                                                    'the secret']})},
+ {'PersonX wants to keep it': defaultdict(<class 'list'>,
+                                          {'isAfter': ['PersonX rents a game'],
+                                           'isBefore': ['PersonX buys the '
+                                                        'game'],
+                                           'oEffect': ['none', 'none', 'none'],
+                                           'oReact': ['none', 'worried'],
+                                           'oWant': ['none', 'none', 'none'],
+                                           'xAttr': ['possessive',
+                                                     'delighted',
+                                                     'Loyal',
+                                                     'Ambitious',
+                                                     'inspired',
+                                                     'committed'],
+                                           'xEffect': ['neglects it',
+                                                       'has second thoughts',
+                                                       'ponders what to do '
+                                                       'with it',
+                                                       'ponders how long he '
+                                                       'can keep it',
+                                                       'none'],
+                                           'xIntent': ['to preserve his '
+                                                       'ancestral property',
+                                                       'to have more of it'],
+                                           'xNeed': ['to put it in a safe spot',
+                                                     'to buy some food for it',
+                                                     'To get it',
+                                                     'To buy it',
+                                                     'none'],
+                                           'xReact': ['anxious if he would be '
+                                                      'successful',
+                                                      'hopeful'],
+                                           'xWant': ['a new pet',
+                                                     'to start collecting',
+                                                     'To show it to others',
+                                                     'To show off in front of '
+                                                     'others',
+                                                     'to use it again.',
+                                                     'to take care of it.']})}]

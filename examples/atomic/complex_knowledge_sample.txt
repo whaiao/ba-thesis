@@ -1,0 +1,113 @@
+The query for following knowledge structure is: Should I keep money I have found on the floor?
+[{"PersonX keeps ___ in PersonY's room": defaultdict(<class 'list'>,
+                                                     {'isFilledBy': ['blanket',
+                                                                     'clothes',
+                                                                     'cigarettes',
+                                                                     'dogs',
+                                                                     'cat',
+                                                                     'pillow',
+                                                                     'pillows',
+                                                                     'coins',
+                                                                     'trash',
+                                                                     'present',
+                                                                     'book',
+                                                                     'marijuana',
+                                                                     'bible',
+                                                                     'alcohol',
+                                                                     'works of '
+                                                                     'art',
+                                                                     'a '
+                                                                     'computer'],
+                                                      'oEffect': ['frowns',
+                                                                  'furrows '
+                                                                  'brows',
+                                                                  'none',
+                                                                  'freed',
+                                                                  'relief'],
+                                                      'oReact': ['indifferent',
+                                                                 'taken '
+                                                                 'advantage '
+                                                                 'of.',
+                                                                 'used.',
+                                                                 'none'],
+                                                      'oWant': ['pet animal',
+                                                                'ask personx '
+                                                                'why',
+                                                                'none',
+                                                                'to take care '
+                                                                'of item',
+                                                                'to pay for '
+                                                                'service'],
+                                                      'xAttr': ['a hoarder',
+                                                                'a caretaker',
+                                                                'competent',
+                                                                'content',
+                                                                'crafty',
+                                                                'sneaky'],
+                                                      'xEffect': ['none',
+                                                                  'none',
+                                                                  'arrested',
+                                                                  'jailed'],
+                                                      'xIntent': ['to hide his '
+                                                                  'stash',
+                                                                  'territorial',
+                                                                  'none'],
+                                                      'xNeed': ['get in the '
+                                                                'room',
+                                                                'get '
+                                                                'permission to '
+                                                                'store',
+                                                                'hide the '
+                                                                'snack',
+                                                                'remember '
+                                                                'where they '
+                                                                'put it',
+                                                                'to be related '
+                                                                'to Y',
+                                                                'to be knowing '
+                                                                "Y's room"],
+                                                      'xReact': ['mischevious',
+                                                                 'in charge',
+                                                                 'content'],
+                                                      'xWant': ['leave',
+                                                                'go to own '
+                                                                'room',
+                                                                'have a snack',
+                                                                'put box away',
+                                                                'to inform Y',
+                                                                'to take back '
+                                                                'the item']})},
+ {'PersonX quickly found': defaultdict(<class 'list'>,
+                                       {'HinderedBy': ['The keys fell into the '
+                                                       'grate.',
+                                                       'PersonX is tired and '
+                                                       'moves slowly',
+                                                       'There are a lot of '
+                                                       'places to look.',
+                                                       "It's too dark in the "
+                                                       'room.',
+                                                       'The mess is huge and '
+                                                       'takes a long time to '
+                                                       'work through',
+                                                       'The room is a total '
+                                                       'mess.'],
+                                        'oEffect': ['none', 'none', 'none'],
+                                        'oReact': ['amused'],
+                                        'oWant': ['none'],
+                                        'xAttr': ['fast',
+                                                  'lucky',
+                                                  'glad',
+                                                  'relieved'],
+                                        'xEffect': ['smiles',
+                                                    'breathes deeply',
+                                                    'feels thankful for '
+                                                    'finding it.',
+                                                    'moves on with the object',
+                                                    'none'],
+                                        'xIntent': ['to win hide and seek'],
+                                        'xNeed': ['to be looking',
+                                                  'to ask questions'],
+                                        'xReact': ['determined', 'victorious'],
+                                        'xWant': ['to investigate more',
+                                                  'to return it',
+                                                  'to take it home']})}]
