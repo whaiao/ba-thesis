@@ -105,7 +105,7 @@
 
 
 ; testing area
-(setv query "I have found money on the floor. Should I keep it?"
+(setv query "My boyfriend and I just broke up."
   res (extract-from-atomic (retrieve-overlap query)))
 (print f"The query for following knowledge structure is: {query}")
 (pprint res)
