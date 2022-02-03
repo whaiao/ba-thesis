@@ -24,6 +24,8 @@ import datasets
 from datasets import load_dataset
 from datasets.dataset_dict import DatasetDict
 
+from src.features import empathetic_dialogues_emotion_binning
+
 HuggingfaceDataset = DatasetDict
 checkpoint = 'bert-base-uncased'
 TOKENIZER = AutoTokenizer.from_pretrained(checkpoint)
@@ -32,23 +34,29 @@ import wandb
 
 wandb.init(project='ba-thesis', entity='benjaminbeilharz')
 
-data = load_dataset('empathetic_dialogues')
+# data = load_dataset('empathetic_dialogues')
+# def tokenizer_function(sample):
+#     return TOKENIZER(sample['utterance'], truncation=True)
+#
+#
+# tokenized_data = data.map(tokenizer_function, batched=True)
+# tokenized_data = tokenized_data.remove_columns([
+#     'speaker_idx', 'utterance_idx', 'utterance', 'prompt', 'selfeval', 'tags',
+#     'conv_id'
+# ])
+# tokenized_data = tokenized_data.rename_column('context', 'labels')
+# labels = set([l['labels'] for l in tokenized_data['train']])
+# labels2idx = {k: i for i, k in enumerate(labels)}
+# def convert_labels(sample):
+#     label = [
+#         torch.tensor(labels2idx[l], dtype=torch.long).unsqueeze(0)
+#         for l in sample['labels']
+#     ]
+#     return {'labels': label}
+# tokenized_data = tokenized_data.map(convert_labels, batched=True).shuffle()
 
-def tokenizer_function(sample):
-    return TOKENIZER(sample['utterance'], truncation=True)
+data = empathetic_dialogues_emotion_binning()
 
-tokenized_data = data.map(tokenizer_function, batched=True)
-tokenized_data = tokenized_data.remove_columns(['speaker_idx', 'utterance_idx', 'utterance', 'prompt', 'selfeval', 'tags', 'conv_id'])
-tokenized_data = tokenized_data.rename_column('context', 'labels')
-
-labels = set([l['labels'] for l in tokenized_data['train']])
-labels2idx = {k: i for i, k in enumerate(labels)}
-
-def convert_labels(sample):
-    label = [torch.tensor(labels2idx[l], dtype=torch.long).unsqueeze(0) for l in sample['labels']]
-    return {'labels': label}
-
-tokenized_data = tokenized_data.map(convert_labels, batched=True).shuffle()
 
 def compute_metrics(preds):
     metric = datasets.load_metric('accuracy')
@@ -56,10 +64,12 @@ def compute_metrics(preds):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
-data_collator = DataCollatorWithPadding(tokenizer=TOKENIZER)
-model = AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=32)
 
-args = TrainingArguments('checkpoints/bert-base-uncased-empatheticdialogues-sentiment-classifier', 
+data_collator = DataCollatorWithPadding(tokenizer=TOKENIZER)
+model = AutoModelForSequenceClassification.from_pretrained(checkpoint,
+                                                           num_labels=3)
+
+args = TrainingArguments('checkpoints/bert-base-uncased-sentiment-classifier',
                          load_best_model_at_end=True,
                          num_train_epochs=10.,
                          evaluation_strategy='epoch',
@@ -76,4 +86,3 @@ trainer = Trainer(
 )
 
 trainer.train()
-
