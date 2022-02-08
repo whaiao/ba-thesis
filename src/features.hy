@@ -67,3 +67,18 @@
               (.map tokenize :batched True)
               (.remove-columns ["speaker_idx" "context" "utterance_idx" "utterance" "prompt" "selfeval" "tags" "conv_id"]))))
 
+
+(defn atomic-relations []
+  (setv turn-type-to-relation {"informative" ["capableof"
+                                              "desires"
+                                              "hasproperty"
+                                              "madeupof"
+                                              "notdesires"
+                                              "objectuse"
+                                              ]
+                               "question" []
+                               "directive" []
+                               "comissive" []})
+
+  (raise (NotImplementedError "")))
+
