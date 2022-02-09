@@ -1,7 +1,0 @@
-(import [transformers [AutoModel AutoTokenizer]])
-
-(setv tagger (.from-pretrained AutoModel "benjaminbeilharz/bert-base-uncased-dailydialog-turn-classifier")
-      data ())
-
-(defn tag-dataset [dataset]
-  ())
