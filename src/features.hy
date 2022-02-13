@@ -69,16 +69,36 @@
 
 
 (defn atomic-relations []
-  (setv turn-type-to-relation {"informative" ["capableof"
-                                              "desires"
-                                              "hasproperty"
-                                              "madeupof"
-                                              "notdesires"
-                                              "objectuse"
-                                              ]
-                               "question" []
-                               "directive" []
-                               "comissive" []})
-
+  (setv turn-type-to-relation {"inform" ["xNeed"
+                                         "xAttr"
+                                         "xEffect"
+                                         "xIntent"]
+                               "question" ["IsBefore"
+                                           "xReason"]
+                               ;;"xIntent"]
+                               "directive" ["HinderedBy"
+                                            "IsAfter"
+                                            "HasSubevent"
+                                            "Causes"
+                                            "xWant"
+                                            "oEffect"
+                                            "oReact"
+                                            "oWant"]
+                               "commissive" ["xReact"]
+                               "passive" ["ObjectUse"
+                                          "AtLocation"
+                                          "MadeUpOf"
+                                          "CapableOf"
+                                          "Desires"
+                                          "NotDesires"]}
+        ;; if turn types are mapped towards time deixis
+        time-line {"backward" (.extend (get turn-type-to-relation "inform")
+                                       (get turn-type-to-relation "question"))
+                   "forward" (.extend (get turn-type-to-relation "directive")
+                                      (get turn-type-to-relation "commissive"))
+                   "passive" (get turn-type-to-relation "passive")}
+        turn-type-to-idx (dfor [i x] (enumerate (.keys turn-type-to-relation)) [i x]))
+                   
+  ;; TODO implement this
   (raise (NotImplementedError "")))
 
