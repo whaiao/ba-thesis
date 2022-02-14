@@ -1,6 +1,6 @@
 from more_itertools import pairwise
 from pprint import pprint
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -114,11 +114,31 @@ def create_datasets(tokenizer: PreTrainedTokenizer):
 
 
 def create_next_turn_prediction_dataset(
-        tokenizer: PreTrainedTokenizer) -> DatasetDict:
+        tokenizer: PreTrainedTokenizer,
+        batch_size: int = 1,
+        is_t5: bool = False) -> Union[DatasetDict, List[datasets.Dataset]]:
+    """Creates a dataset for next dialog turn prediciton
+
+    Args:
+        tokenizer - tokenizer to use
+        batch_size - batch size of samples (default 1)
+        is_t5 - if `True` returns `DataLoader` classes of splits
+
+    Returns:
+        daily dialog dataset prepared for next turn prediction
+    """
     TOKENIZER = tokenizer
 
     def tokenizer_fn(sample):
         return TOKENIZER(sample['first'], sample['second'], truncation=True)
+
+    # templates to tune t5 for
+    templates = {
+        1: 'inform: ',
+        2: 'ask a question: ',
+        3: 'make a suggestion: ',
+        4: 'accept a suggestion: '
+    }
 
     def relabel_samples(sample):
         new_data = []
@@ -128,7 +148,16 @@ def create_next_turn_prediction_dataset(
 
             for i, turn in enumerate(pairwise(turns), start=1):
                 x, y = turn
-                new_data.append({'first': x, 'second': y, 'labels': labels[i]})
+
+                if not is_t5:
+                    new_data.append({
+                        'first': x,
+                        'second': y,
+                        'labels': labels[i]
+                    })
+                else:
+                    x = templates[labels[i]] + x
+                    new_data.append({'first': x, 'second': y})
 
         return new_data
 
@@ -137,6 +166,13 @@ def create_next_turn_prediction_dataset(
     for k, v in data.items():
         tmp = pd.DataFrame(relabel_samples(v))
         final[k] = datasets.Dataset.from_pandas(tmp)
+
+    if is_t5:
+        # return pytorch dataset if using data for t5
+        t5 = []
+        for split in final.keys():
+            t5.append(DataLoader(final[split], batch_size=batch_size))
+        return t5
 
     tokenized = final.map(tokenizer_fn, batched=True)
     tokenized.remove_columns_(['first', 'second'])
