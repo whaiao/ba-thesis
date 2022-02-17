@@ -1,4 +1,5 @@
 from copy import deepcopy
+from math import sqrt
 from typing import Tuple
 
 import torch
@@ -6,6 +7,141 @@ from torch import nn
 from torch.nn import functional as F
 
 from transformers import AutoModel, AutoTokenizer
+
+
+class KnowledgeAttention(nn.Module):
+    def __init__(self,
+                 embed_dim: int,
+                 n_context_heads: int,
+                 n_mental_heads: int,
+                 n_event_heads: int,
+                 dropout: float = .1,
+                 share_weights: bool = False):
+        """Knowledge Attention Module incooperating external knowledge
+        Args:
+            embed_dim - model dimension (use same as knowledge encoder)
+            n_context_heads - number of attention heads using for current turn
+            n_mental_heads - number of attention heads using for mental state
+            n_event_heads - number of attention heads using for event state
+            dropout - dropout to apply on attention
+            share_weights - if true uses the same linaer layer to upscale inputs
+        """
+
+        super(KnowledgeAttention, self).__init__()
+        self.d_model = embed_dim
+        self.n_context_heads = n_context_heads
+        self.n_event_heads = n_event_heads
+        self.n_mental_heads = n_mental_heads
+        self.total_heads = n_context_heads + n_event_heads + n_mental_heads
+        assert self.d_model % self.total_heads == 0, 'Model dimensions are not divisable through the number of heads'
+
+        self.dropout = dropout
+        self.share_weights = share_weights
+
+        # use the same weights to encode matrices
+        if self.share_weights:
+            self.linear = nn.Linear(self.d_model, self.d_model * 3)
+        else:
+            self.context_linear = nn.Linear(self.d_model, self.d_model * 3)
+            self.event_linear = deepcopy(self.context_linear)
+            self.mental_linear = deepcopy(self.context_linear)
+
+        self.output = nn.Linear(self.d_model, self.d_model)
+
+    def _attention(self, q: torch.FloatTensor, k: torch.FloatTensor,
+                   v: torch.FloatTensor, mask: torch.BoolTensor,
+                   dropout: float) -> Tuple[torch.FloatTensor]:
+        """Calculates multihead attention
+
+        Args:
+            q - query matrix
+            k - key matrix
+            v - value matrix
+            mask - attention mask
+            dropout - dropout rate
+
+        Returns:
+            attention_score and attention
+        """
+
+        d_k = q.size()[-1]
+        attn_logits = torch.matmul(q, k.transpose(-2, -1))
+        attn_logits = attn_logits / sqrt(d_k)
+        if mask is not None:
+            attn_logits = attn_logits.masked_fill(mask == 0, -9e15)
+        attention = F.softmax(attn_logits, dim=-1)
+        if dropout > 0.0:
+            attention = F.dropout(attention, p=dropout)
+        output = torch.matmul(attention, v)
+        return (output, attention)
+
+    def _process_attention_heads(
+            self, x: torch.FloatTensor, qkv: torch.FloatTensor, n_heads: int,
+            mask: torch.BoolTensor) -> Tuple[torch.FloatTensor]:
+        """Processes matrices to output attention values and weights
+
+        Args:
+            x - input sample
+            qkv - upscaled weight matrix from input
+            n_heads - number of attention heads
+            mask - attention mask
+
+        Returns:
+            attention values and weights
+        """
+        batch_size, seq_len, embed_dim = x.size()
+
+        # must calculate attention head dimension dynamically
+        qkv = qkv.reshape(batch_size, seq_len, n_heads,
+                          self.d_model // n_heads * 3)
+        qkv = qkv.permute(0, 2, 1, 3)  # batch, head, seqlen, dim
+        q, k, v = qkv.chunk(3, dim=-1)
+        output, attn = self._attention(q, k, v, mask, self.dropout)
+        output = output.permute(0, 2, 1, 3)
+        output = output.reshape(batch_size, seq_len, embed_dim)
+        return (output, attn)
+
+    def forward(self,
+                context: torch.FloatTensor,
+                event: torch.FloatTensor,
+                mental: torch.FloatTensor,
+                mask=None,
+                return_weights: bool = False) -> Tuple[torch.FloatTensor]:
+        """Knowledge attention forward pass
+
+        Args:
+            context - current turn
+            event - event encoding
+            mental - mental state encoding
+            mask - attention mask
+            return_weights - returns attention weights
+
+        Returns:
+            if `return_weights` is `False`: (context_attention, event_attention, mental_attention)
+            else: (context_attention, event_attention, mental_attention, context_weights, event_weights, mental_weights)
+        """
+        if not self.share_weights:
+            qkv_context = self.context_linear(context)
+            qkv_event = self.event_linear(event)
+            qkv_mental = self.mental_linear(mental)
+        else:
+            qkv_context = self.linear(context)
+            qkv_event = self.linear(event)
+            qkv_mental = self.linear(mental)
+
+        context_o, context_attn = self._process_attention_heads(
+            context, qkv_context, self.n_context_heads, mask)
+        event_o, event_attn = self._process_attention_heads(
+            event, qkv_event, self.n_event_heads, mask)
+        mental_o, mental_attn = self._process_attention_heads(
+            mental, qkv_mental, self.n_mental_heads, mask)
+
+        if not return_weights:
+            return (context_o, event_o, mental_o)
+
+        else:
+            return (context_o, event_o, mental_o, context_attn, event_attn,
+                    mental_attn)
 
 
 class AtomicMultiHeadAttention(nn.Module):
@@ -148,14 +284,23 @@ class AtomicMultiHeadAttention(nn.Module):
                 event_weights, mental_weights)
 
 
+# testing area
 if __name__ == "__main__":
-    # testing area
     module = AtomicMultiHeadAttention(embed_dim=768,
                                       num_heads=8,
                                       dropout=0.1,
                                       checkpoint='distilbert-base-uncased')
+    mha = KnowledgeAttention(768, 2, 3, 3, share_weights=False)
     x = torch.randn((2, 40, 768))
+    tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
+    model = AutoModel.from_pretrained('distilbert-base-uncased')
+    encode = lambda x: tokenizer(
+        x, truncation=True, padding='max_length', return_tensors='pt')
     event = ['this is a sample', 'and another']
     mental = ['i am feeling well', 'so well']
 
+    e = model(**encode(event)).last_hidden_state
+    m = model(**encode(mental)).last_hidden_state
+
+    print(mha(x, e, m))
     print(module(x, event, mental))
