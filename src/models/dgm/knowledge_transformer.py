@@ -46,11 +46,11 @@ class KnowledgeAttention(nn.Module):
             self.event_linear = deepcopy(self.context_linear)
             self.mental_linear = deepcopy(self.context_linear)
 
-        self.output = nn.Linear(self.d_model, self.d_model)
+        self.output = nn.LazyLinear(self.d_model)
 
-    def _attention(self, q: torch.FloatTensor, k: torch.FloatTensor,
-                   v: torch.FloatTensor, mask: torch.BoolTensor,
-                   dropout: float) -> Tuple[torch.FloatTensor]:
+    def _multihead_attention(self, q: torch.FloatTensor, k: torch.FloatTensor,
+                             v: torch.FloatTensor, mask: torch.BoolTensor,
+                             dropout: float) -> Tuple[torch.FloatTensor]:
         """Calculates multihead attention
 
         Args:
@@ -63,7 +63,6 @@ class KnowledgeAttention(nn.Module):
         Returns:
             attention_score and attention
         """
-
         d_k = q.size()[-1]
         attn_logits = torch.matmul(q, k.transpose(-2, -1))
         attn_logits = attn_logits / sqrt(d_k)
@@ -94,11 +93,13 @@ class KnowledgeAttention(nn.Module):
         # must calculate attention head dimension dynamically
         qkv = qkv.reshape(batch_size, seq_len, n_heads,
                           self.d_model // n_heads * 3)
-        qkv = qkv.permute(0, 2, 1, 3)  # batch, head, seqlen, dim
+        qkv = qkv.permute(0, 2, 1, 3)  # batch, heads, seqlen, dim
         q, k, v = qkv.chunk(3, dim=-1)
-        output, attn = self._attention(q, k, v, mask, self.dropout)
-        output = output.permute(0, 2, 1, 3)
-        output = output.reshape(batch_size, seq_len, embed_dim)
+        output, attn = self._multihead_attention(q, k, v, mask, self.dropout)
+        output = output.permute(0, 2, 1, 3)  # batch, seqlen, heads, dim
+        attention_logits = output.reshape(batch_size, seq_len, embed_dim)
+        # z0 x w0
+        output = self.output(attention_logits)
         return (output, attn)
 
     def forward(self,
@@ -120,14 +121,14 @@ class KnowledgeAttention(nn.Module):
             if `return_weights` is `False`: (context_attention, event_attention, mental_attention)
             else: (context_attention, event_attention, mental_attention, context_weights, event_weights, mental_weights)
         """
-        if not self.share_weights:
-            qkv_context = self.context_linear(context)
-            qkv_event = self.event_linear(event)
-            qkv_mental = self.mental_linear(mental)
-        else:
+        if self.share_weights:
             qkv_context = self.linear(context)
             qkv_event = self.linear(event)
             qkv_mental = self.linear(mental)
+        else:
+            qkv_context = self.context_linear(context)
+            qkv_event = self.event_linear(event)
+            qkv_mental = self.mental_linear(mental)
 
         context_o, context_attn = self._process_attention_heads(
             context, qkv_context, self.n_context_heads, mask)
@@ -136,12 +137,18 @@ class KnowledgeAttention(nn.Module):
         mental_o, mental_attn = self._process_attention_heads(
             mental, qkv_mental, self.n_mental_heads, mask)
 
-        if not return_weights:
-            return (context_o, event_o, mental_o)
+        # TODO: concat attention heads and project with a linear layer into one matrix
+        # fix attention mask with regards to different sized input, might as well take attention masks from tokenizer for knowledge
 
-        else:
+        # concat all transformed attention heads and feed through linear layer
+        attention = torch.cat([context_o, event_o, mental_o], dim=1)
+        out = self.output(attention)
+
+        if return_weights:
             return (context_o, event_o, mental_o, context_attn, event_attn,
                     mental_attn)
+        else:
+            return (context_o, event_o, mental_o)
 
 
 class AtomicMultiHeadAttention(nn.Module):
@@ -302,5 +309,6 @@ if __name__ == "__main__":
     e = model(**encode(event)).last_hidden_state
     m = model(**encode(mental)).last_hidden_state
 
-    print(mha(x, e, m))
-    print(module(x, event, mental))
+    # print(mha(x, e, m))
+    mha(x, e, m)
+    # print(module(x, event, mental))
