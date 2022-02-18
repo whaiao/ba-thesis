@@ -13,16 +13,18 @@ class KnowledgeAttention(nn.Module):
     def __init__(self,
                  embed_dim: int,
                  n_context_heads: int,
-                 n_mental_heads: int,
                  n_event_heads: int,
+                 n_mental_heads: int,
+                 n_moral_heads: int,
                  dropout: float = .1,
                  share_weights: bool = False):
         """Knowledge Attention Module incooperating external knowledge
         Args:
             embed_dim - model dimension (use same as knowledge encoder)
             n_context_heads - number of attention heads using for current turn
-            n_mental_heads - number of attention heads using for mental state
             n_event_heads - number of attention heads using for event state
+            n_mental_heads - number of attention heads using for mental state
+            n_moral_heads - number of attention heads using for moral state
             dropout - dropout to apply on attention
             share_weights - if true uses the same linaer layer to upscale inputs
         """
@@ -32,7 +34,8 @@ class KnowledgeAttention(nn.Module):
         self.n_context_heads = n_context_heads
         self.n_event_heads = n_event_heads
         self.n_mental_heads = n_mental_heads
-        self.total_heads = n_context_heads + n_event_heads + n_mental_heads
+        self.n_moral_heads = n_moral_heads
+        self.total_heads = n_context_heads + n_event_heads + n_mental_heads + n_moral_heads
         assert self.d_model % self.total_heads == 0, 'Model dimensions are not divisable through the number of heads'
 
         self.dropout = dropout
@@ -45,6 +48,7 @@ class KnowledgeAttention(nn.Module):
             self.context_linear = nn.Linear(self.d_model, self.d_model * 3)
             self.event_linear = deepcopy(self.context_linear)
             self.mental_linear = deepcopy(self.context_linear)
+            self.moral_linear = deepcopy(self.context_linear)
 
         self.output = nn.LazyLinear(self.d_model)
 
@@ -106,6 +110,7 @@ class KnowledgeAttention(nn.Module):
                 context: torch.FloatTensor,
                 event: torch.FloatTensor,
                 mental: torch.FloatTensor,
+                moral: torch.FloatTensor,
                 mask=None,
                 return_weights: bool = False) -> Tuple[torch.FloatTensor]:
         """Knowledge attention forward pass
@@ -114,6 +119,7 @@ class KnowledgeAttention(nn.Module):
             context - current turn
             event - event encoding
             mental - mental state encoding
+            moral - moral encoding
             mask - attention mask
             return_weights - returns attention weights
 
@@ -125,10 +131,12 @@ class KnowledgeAttention(nn.Module):
             qkv_context = self.linear(context)
             qkv_event = self.linear(event)
             qkv_mental = self.linear(mental)
+            qkv_moral = self.linear(moral)
         else:
             qkv_context = self.context_linear(context)
             qkv_event = self.event_linear(event)
             qkv_mental = self.mental_linear(mental)
+            qkv_moral = self.moral_linear(moral)
 
         context_o, context_attn = self._process_attention_heads(
             context, qkv_context, self.n_context_heads, mask)
@@ -136,19 +144,21 @@ class KnowledgeAttention(nn.Module):
             event, qkv_event, self.n_event_heads, mask)
         mental_o, mental_attn = self._process_attention_heads(
             mental, qkv_mental, self.n_mental_heads, mask)
+        moral_o, moral_attn = self._process_attention_heads(
+            moral, qkv_moral, self.n_moral_heads, mask)
 
         # TODO: concat attention heads and project with a linear layer into one matrix
         # fix attention mask with regards to different sized input, might as well take attention masks from tokenizer for knowledge
 
         # concat all transformed attention heads and feed through linear layer
-        attention = torch.cat([context_o, event_o, mental_o], dim=1)
+        attention = torch.cat([context_o, event_o, mental_o, moral_o], dim=1)
         out = self.output(attention)
 
         if return_weights:
-            return (context_o, event_o, mental_o, context_attn, event_attn,
-                    mental_attn)
+            return (context_o, event_o, mental_o, moral_o, context_attn,
+                    event_attn, mental_attn, moral_attn)
         else:
-            return (context_o, event_o, mental_o)
+            return (context_o, event_o, mental_o, moral_o)
 
 
 class AtomicMultiHeadAttention(nn.Module):
@@ -293,11 +303,11 @@ class AtomicMultiHeadAttention(nn.Module):
 
 # testing area
 if __name__ == "__main__":
-    module = AtomicMultiHeadAttention(embed_dim=768,
-                                      num_heads=8,
-                                      dropout=0.1,
-                                      checkpoint='distilbert-base-uncased')
-    mha = KnowledgeAttention(768, 2, 3, 3, share_weights=False)
+    # module = AtomicMultiHeadAttention(embed_dim=768,
+    #                                   num_heads=8,
+    #                                   dropout=0.1,
+    #                                   checkpoint='distilbert-base-uncased')
+    mha = KnowledgeAttention(768, 4, 4, 4, 4, share_weights=False)
     x = torch.randn((2, 40, 768))
     tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
     model = AutoModel.from_pretrained('distilbert-base-uncased')
@@ -305,10 +315,11 @@ if __name__ == "__main__":
         x, truncation=True, padding='max_length', return_tensors='pt')
     event = ['this is a sample', 'and another']
     mental = ['i am feeling well', 'so well']
+    moral = ['i am feeling well', 'so well']
 
     e = model(**encode(event)).last_hidden_state
     m = model(**encode(mental)).last_hidden_state
+    mo = model(**encode(moral)).last_hidden_state
 
-    # print(mha(x, e, m))
-    mha(x, e, m)
+    print(mha(x, e, m, mo))
     # print(module(x, event, mental))
