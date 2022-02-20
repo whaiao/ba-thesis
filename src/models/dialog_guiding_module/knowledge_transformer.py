@@ -1,13 +1,12 @@
 from copy import deepcopy
 from math import sqrt
 from pprint import pprint
-from typing import Callable, Iterable, Tuple, Optional
+from typing import Callable, Iterable, Tuple, Optional, Union
 
 import torch
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
-
 from transformers import AutoModel, T5ForConditionalGeneration, AutoTokenizer
 
 
@@ -19,6 +18,7 @@ class KnowledgeAttention(nn.Module):
                  n_mental_heads: int,
                  n_moral_heads: int,
                  dropout: float = .1,
+                 hf_checkpoint: str = 'distilbert-base-uncased',
                  share_weights: bool = False):
         """Knowledge Attention Module incooperating external knowledge
         Args:
@@ -42,6 +42,8 @@ class KnowledgeAttention(nn.Module):
 
         self.dropout = dropout
         self.share_weights = share_weights
+        self.tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint)
+        self.encoder = AutoModel.from_pretrained(hf_checkpoint)
 
         # use the same weights to encode matrices
         if self.share_weights:
@@ -118,13 +120,25 @@ class KnowledgeAttention(nn.Module):
         output = self.output(attention_logits)
         return (output, attn)
 
+    def _prepare_knowledge(self, event: str, mental: str,
+                           moral: str) -> Tuple[Tensor]:
+        def encode(x: str) -> Tensor:
+            return self.tokenizer(x,
+                                  truncation=True,
+                                  padding='max_length',
+                                  return_tensors='pt')
+
+        event = self.encoder(**encode(event)).last_hidden_state
+        mental = self.encoder(**encode(mental)).last_hidden_state
+        moral = self.encoder(**encode(moral)).last_hidden_state
+        return (event, mental, moral)
+
     def forward(self,
                 context: torch.FloatTensor,
-                event: torch.FloatTensor,
-                mental: torch.FloatTensor,
-                moral: torch.FloatTensor,
+                event: str,
+                mental: str,
+                moral: str,
                 mask: torch.BoolTensor = None,
-                experimental: bool = True,
                 return_weights: bool = False) -> Tuple[torch.FloatTensor]:
         """Knowledge attention forward pass
 
@@ -140,6 +154,7 @@ class KnowledgeAttention(nn.Module):
             if `return_weights` is `False`: (context_attention, event_attention, mental_attention)
             else: (context_attention, event_attention, mental_attention, context_weights, event_weights, mental_weights)
         """
+        event, mental, moral = self._prepare_knowledge(event, mental, moral)
         if self.share_weights:
             qkv_context = self.linear(context)
             qkv_event = self.linear(event)
@@ -160,8 +175,6 @@ class KnowledgeAttention(nn.Module):
         moral_o, moral_attn = self._process_attention_heads(
             moral, qkv_moral, self.n_moral_heads, mask)
 
-        # TODO: concat attention heads and project with a linear layer into one matrix
-        # TODO: add pooling after upscaling onto double dimension
         # fix attention mask with regards to different sized input, might as well take attention masks from tokenizer for knowledge
 
         if return_weights:
@@ -393,20 +406,24 @@ class KnowledgeAttentionEncoder(nn.Module):
         super(KnowledgeAttentionEncoder, self).__init__()
         self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
+        self.knowledge_attention = KnowledgeAttention
         self.encoding_layers = nn.ModuleList(
             [KnowledgeEncoderBlock(d_model=768, nhead=4) for _ in range(4)])
 
-    def forward(self, x: str,
+    def forward(self, x: Union[str, Tensor],
                 knowledge_attn_heads: Iterable[Tensor]) -> Tensor:
 
         assert len(knowledge_attn_heads) == len(
             self.encoding_layers
         ), 'Number of attention encoding layers does not match number of knowledge attention heads'
-        encode = self.tokenizer(x,
-                                truncation=True,
-                                padding='max_length',
-                                return_tensors='pt')
-        x = self.encoder(**encode).last_hidden_state
+        if isinstance(x, str):
+            encode = self.tokenizer(x,
+                                    truncation=True,
+                                    padding='max_length',
+                                    return_tensors='pt')
+            x = self.encoder(**encode).last_hidden_state
+        elif isinstance(x, torch.FloatTensor):
+            x = self.encoder(inputs_embeds=x).last_hidden_state
 
         for layer, knowledge_attn_head in zip(self.encoding_layers,
                                               knowledge_attn_heads):
@@ -432,11 +449,11 @@ if __name__ == "__main__":
     mental = ['i am feeling well', 'so well']
     moral = ['i am feeling well', 'so well']
 
-    e = model(**encode(event, tokenizer)).last_hidden_state
-    m = model(**encode(mental, tokenizer)).last_hidden_state
-    mo = model(**encode(moral, tokenizer)).last_hidden_state
+    #    e = model(**encode(event, tokenizer)).last_hidden_state
+    #    m = model(**encode(mental, tokenizer)).last_hidden_state
+    #    mo = model(**encode(moral, tokenizer)).last_hidden_state
 
-    knowledge = mha(x, e, m, mo)
+    knowledge = mha(x, event, mental, moral)
 
     # t5 needs embedding dim of 512
     x = ['This is a sample', 'And another one']

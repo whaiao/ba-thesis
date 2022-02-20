@@ -1,14 +1,13 @@
 from pprint import pprint
 from typing import Iterable, List, Mapping, Tuple
 
-import hy  # needed to transform hy file
-from transformers import AutoTokenizer, T5ForConditionalGeneration, AutoModelForSequenceClassification
+from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
 from torch import Tensor
 from torch import nn
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 
+from src.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
 from src.models.dialog_transformer import DialogTransformer
-from src.models.dgm.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
-from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
 
 
 class DialogGuidingModule(nn.Module):

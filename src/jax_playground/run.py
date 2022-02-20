@@ -1,12 +1,14 @@
 from functools import partial
 
-import jax
 import haiku as hk
+import jax
 import optax as O
 
-from src.loss import lm_with_mask_loss_fn
-from src.train import JAXTrainer
-from src.transformer import build_transformer_forward_fn
+from src.jax_playground.loss import lm_with_mask_loss_fn
+from src.jax_playground.train import JAXTrainer
+from src.jax_playground.transformer import build_transformer_forward_fn
+
+
 # from src.utils import get_config
 
 # TODO: Read yaml config here

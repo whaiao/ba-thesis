@@ -105,8 +105,8 @@
 
 
 ; testing area
-(setv query "My boyfriend and I just broke up."
-  res (extract-from-atomic (retrieve-overlap query)))
-(print f"The query for following knowledge structure is: {query}")
-(pprint res)
+; (setv query "Where have you last seen it?"
+;   res (extract-from-atomic (retrieve-overlap query)))
+; (print f"The query for following knowledge structure is: {query}")
+; (pprint res)
 
