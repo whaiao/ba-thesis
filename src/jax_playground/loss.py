@@ -1,9 +1,9 @@
+from typing import Callable, Iterable
+
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import jax.random as random
-
-from typing import Callable, Iterable
 
 PRNGKey = random.PRNGKey
 

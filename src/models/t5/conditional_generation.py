@@ -1,12 +1,10 @@
 from functools import partial
 from sys import argv
 from typing import Callable, Dict
-from tqdm import tqdm
 
-import numpy as np
-from transformers import T5Tokenizer, T5ForConditionalGeneration, AdamW, get_linear_schedule_with_warmup
 import torch
-from torch.utils.data import DataLoader
+from tqdm import tqdm
+from transformers import T5Tokenizer, T5ForConditionalGeneration, AdamW, get_linear_schedule_with_warmup
 
 from src.models.bert.data import create_next_turn_prediction_dataset
 

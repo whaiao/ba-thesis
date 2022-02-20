@@ -1,11 +1,12 @@
 from pprint import pprint
 from typing import Iterable, List, Mapping, Tuple
 
-from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
+import hy
 from torch import Tensor
 from torch import nn
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 
+from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
 from src.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
 from src.models.dialog_transformer import DialogTransformer
 
