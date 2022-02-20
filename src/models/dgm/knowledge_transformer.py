@@ -1,8 +1,9 @@
 from copy import deepcopy
 from math import sqrt
-from typing import Tuple
+from typing import Callable, Iterable, Tuple, Optional
 
 import torch
+from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
@@ -299,6 +300,101 @@ class AtomicMultiHeadAttention(nn.Module):
 
         return (context_attn, event_attn, mental_attn, context_weights,
                 event_weights, mental_weights)
+
+
+class KnowledgeEncoderBlock(nn.TransformerEncoderLayer):
+    def init(self,
+             d_model: int = 768,
+             nhead: int = 4,
+             dim_feedforward: int = 2048,
+             dropout: float = .1,
+             activation: Callable = nn.ReLU):
+        """Overwrites Transformer Encoder Layer to adjust to receiving knowledge attention heads
+        Args:
+            d_model - embed into dimensions
+            nhead - number of knowledge attention heads
+            dim_feedforward - dimension of feed forward layer
+            dropout - dropout rate
+            activation - activation function to use on hidden layer
+        """
+        super(KnowledgeEncoderBlock,
+              self).__init__(d_model=d_model,
+                             nhead=nhead,
+                             dim_feedforward=dim_feedforward,
+                             dropout=dropout,
+                             activation=activation,
+                             batch_first=True)
+
+    def forward(self,
+                src: Tensor,
+                knowledge_attn_head: Tensor,
+                src_mask: Optional[Tensor] = None,
+                src_key_padding_mask: Optional[Tensor] = None) -> Tensor:
+        """Forward Layer for Knowledge Self Attention
+        Args:
+            src - source tensor
+            knowledge_attn_head - knowledge attention to use in self attention
+            src_mask - mask for src tensor
+            src_key_padding_mask - key padding mask
+
+        Returns:
+            Tensor after encoding layer
+        """
+        x = src
+        if self.norm_first:
+            x = x + self._sa_block(self.norm1(x), knowledge_attn_head,
+                                   src_mask, src_key_padding_mask)
+            x = x + self._ff_block(self.norm2(x))
+        else:
+            x = self.norm1(x + self._sa_block(x, knowledge_attn_head, src_mask,
+                                              src_key_padding_mask))
+            x = self.norm2(x + self._ff_block(x))
+
+        return x
+
+    def _sa_block(self, x: Tensor, knowledge_attn_head: Tensor,
+                  attn_mask: Optional[Tensor],
+                  key_padding_mask: Optional[Tensor]) -> Tensor:
+        """Self attention block adjusted to taking additional heads from KnowledgeEncoder
+        Args:
+            x - input tensor
+            knowledge_attn_head - output from `KnowledgeEncoder`
+            attn_mask - attention mask for input tensor
+            key_padding_mask - key padding mask
+
+        Returns:
+            self attention output
+        """
+        x = self.self_attn(x,
+                           knowledge_attn_head,
+                           knowledge_attn_head,
+                           attn_mask=attn_mask,
+                           key_padding_mask=key_padding_mask,
+                           need_weights=False)[0]
+        return self.dropout1(x)
+
+
+class KnowledgeAttentionEncoder(nn.Module):
+    def __init__(self, encoder_checkpoint: str = 'distilbert-base-uncased'):
+        super(KnowledgeAttentionEncoder, self).__init__()
+        self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
+        self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
+        self.encoding_layers = nn.ModuleList(
+            [KnowledgeEncoderBlock() for _ in range(3)])
+
+    def forward(self, x: str,
+                knowledge_attn_heads: Iterable[Tensor]) -> Tensor:
+        encode = self.tokenizer(x,
+                                truncation=True,
+                                padding='max_length',
+                                return_tensors='pt')
+        x = self.encoder(**encode).last_hidden_state
+
+        for layer, knowledge_attn_head in zip(self.encoding_layers,
+                                              knowledge_attn_heads):
+            x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
+
+        return x
 
 
 # testing area
