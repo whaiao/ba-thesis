@@ -1,5 +1,6 @@
 from copy import deepcopy
 from math import sqrt
+from pprint import pprint
 from typing import Callable, Iterable, Tuple, Optional
 
 import torch
@@ -7,7 +8,7 @@ from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, T5ForConditionalGeneration, AutoTokenizer
 
 
 class KnowledgeAttention(nn.Module):
@@ -380,10 +381,14 @@ class KnowledgeAttentionEncoder(nn.Module):
         self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
         self.encoding_layers = nn.ModuleList(
-            [KnowledgeEncoderBlock() for _ in range(3)])
+            [KnowledgeEncoderBlock(d_model=768, nhead=4) for _ in range(4)])
 
     def forward(self, x: str,
                 knowledge_attn_heads: Iterable[Tensor]) -> Tensor:
+
+        assert len(knowledge_attn_heads) == len(
+            self.encoding_layers
+        ), 'Number of attention encoding layers does not match number of knowledge attention heads'
         encode = self.tokenizer(x,
                                 truncation=True,
                                 padding='max_length',
@@ -393,29 +398,40 @@ class KnowledgeAttentionEncoder(nn.Module):
         for layer, knowledge_attn_head in zip(self.encoding_layers,
                                               knowledge_attn_heads):
             x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
-
         return x
 
 
 # testing area
 if __name__ == "__main__":
-    # module = AtomicMultiHeadAttention(embed_dim=768,
-    #                                   num_heads=8,
-    #                                   dropout=0.1,
-    #                                   checkpoint='distilbert-base-uncased')
     mha = KnowledgeAttention(768, 4, 4, 4, 4, share_weights=False)
-    x = torch.randn((2, 40, 768))
+    knowledge_encoder_block = KnowledgeEncoderBlock(d_model=768, nhead=4)
+    knowledge_encoder = KnowledgeAttentionEncoder()
+
+    # ensure inputs are fixed to 512
+    x = torch.randn((2, 512, 768))
     tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
     model = AutoModel.from_pretrained('distilbert-base-uncased')
-    encode = lambda x: tokenizer(
+    t5 = T5ForConditionalGeneration.from_pretrained('t5-small')
+    t5_tok = AutoTokenizer.from_pretrained('t5-small')
+    encode = lambda x, y: y(
         x, truncation=True, padding='max_length', return_tensors='pt')
     event = ['this is a sample', 'and another']
     mental = ['i am feeling well', 'so well']
     moral = ['i am feeling well', 'so well']
 
-    e = model(**encode(event)).last_hidden_state
-    m = model(**encode(mental)).last_hidden_state
-    mo = model(**encode(moral)).last_hidden_state
+    e = model(**encode(event, tokenizer)).last_hidden_state
+    m = model(**encode(mental, tokenizer)).last_hidden_state
+    mo = model(**encode(moral, tokenizer)).last_hidden_state
 
-    print(mha(x, e, m, mo))
-    # print(module(x, event, mental))
+    knowledge = mha(x, e, m, mo)
+
+    # t5 needs embedding dim of 512
+    x = ['This is a sample', 'And another one']
+    linear = nn.Linear(768, 512)
+    t5_in = knowledge_encoder(x, knowledge)
+    t5_in = linear(t5_in)
+
+    # batch_size must be fitting
+    dec = encode(['This is a sample', 'And another one'], t5_tok).input_ids
+    out = t5(inputs_embeds=t5_in, labels=dec)
+    pprint(out)
