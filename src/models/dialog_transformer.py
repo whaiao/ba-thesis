@@ -6,6 +6,9 @@ from torch import Tensor
 
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
+# TODO: add caching to not necessarily need to encode encoded information again
+# and add generated utterance to current input
+
 
 class HistoryEncoder(nn.Module):
     def __init__(self,
