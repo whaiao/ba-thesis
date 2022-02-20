@@ -46,13 +46,23 @@ class KnowledgeAttention(nn.Module):
         # use the same weights to encode matrices
         if self.share_weights:
             self.linear = nn.Linear(self.d_model, self.d_model * 3)
+            self.upscale = nn.Linear(self.d_model, self.d_model * 2)
+            self.pooling = nn.AdaptiveAvgPool1d(self.d_model)
         else:
             self.context_linear = nn.Linear(self.d_model, self.d_model * 3)
             self.event_linear = deepcopy(self.context_linear)
             self.mental_linear = deepcopy(self.context_linear)
             self.moral_linear = deepcopy(self.context_linear)
 
-        self.output = nn.LazyLinear(self.d_model)
+            # upscale
+            self.context_upscale = nn.Sequential(
+                nn.Linear(self.d_model, self.d_model * 2), nn.ReLU(),
+                nn.AvgPool1d(kernel_size=2, stride=2))
+            self.event_upscale = deepcopy(self.context_upscale)
+            self.mental_upscale = deepcopy(self.context_upscale)
+            self.moral_upscale = deepcopy(self.context_upscale)
+
+        self.output = nn.Linear(self.d_model, self.d_model)
 
     def _multihead_attention(self, q: torch.FloatTensor, k: torch.FloatTensor,
                              v: torch.FloatTensor, mask: torch.BoolTensor,
@@ -113,7 +123,8 @@ class KnowledgeAttention(nn.Module):
                 event: torch.FloatTensor,
                 mental: torch.FloatTensor,
                 moral: torch.FloatTensor,
-                mask=None,
+                mask: torch.BoolTensor = None,
+                experimental: bool = True,
                 return_weights: bool = False) -> Tuple[torch.FloatTensor]:
         """Knowledge attention forward pass
 
@@ -150,16 +161,18 @@ class KnowledgeAttention(nn.Module):
             moral, qkv_moral, self.n_moral_heads, mask)
 
         # TODO: concat attention heads and project with a linear layer into one matrix
+        # TODO: add pooling after upscaling onto double dimension
         # fix attention mask with regards to different sized input, might as well take attention masks from tokenizer for knowledge
-
-        # concat all transformed attention heads and feed through linear layer
-        attention = torch.cat([context_o, event_o, mental_o, moral_o], dim=1)
-        out = self.output(attention)
 
         if return_weights:
             return (context_o, event_o, mental_o, moral_o, context_attn,
                     event_attn, mental_attn, moral_attn)
         else:
+            # linear + relu + pooling
+            context_o = self.context_upscale(context_o)
+            event_o = self.context_upscale(event_o)
+            mental_o = self.mental_upscale(mental_o)
+            moral_o = self.moral_upscale(moral_o)
             return (context_o, event_o, mental_o, moral_o)
 
 
