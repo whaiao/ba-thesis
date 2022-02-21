@@ -1,7 +1,8 @@
+from collections import OrderedDict
 from copy import deepcopy
 from math import sqrt
 from pprint import pprint
-from typing import Callable, Iterable, Tuple, Optional, Union
+from typing import Callable, Iterable, Tuple, Optional, Union, OrderedDict
 
 import torch
 from torch import Tensor
@@ -133,13 +134,15 @@ class KnowledgeAttention(nn.Module):
         moral = self.encoder(**encode(moral)).last_hidden_state
         return (event, mental, moral)
 
-    def forward(self,
-                context: torch.FloatTensor,
-                event: str,
-                mental: str,
-                moral: str,
-                mask: torch.BoolTensor = None,
-                return_weights: bool = False) -> Tuple[torch.FloatTensor]:
+    def forward(
+        self,
+        context: torch.FloatTensor,
+        event: str,
+        mental: str,
+        moral: str,
+        mask: torch.BoolTensor = None,
+        return_weights: bool = False
+    ) -> Union[OrderedDict[str, Tensor], Tuple[torch.FloatTensor]]:
         """Knowledge attention forward pass
 
         Args:
@@ -186,7 +189,10 @@ class KnowledgeAttention(nn.Module):
             event_o = self.context_upscale(event_o)
             mental_o = self.mental_upscale(mental_o)
             moral_o = self.moral_upscale(moral_o)
-            return (context_o, event_o, mental_o, moral_o)
+            out = OrderedDict([('context', context_o), ('moral', moral_o),
+                               ('mental', mental_o), ('event', mental_o)])
+            # return (context_o, event_o, mental_o, moral_o)
+            return out
 
 
 class AtomicMultiHeadAttention(nn.Module):
@@ -406,7 +412,6 @@ class KnowledgeAttentionEncoder(nn.Module):
         super(KnowledgeAttentionEncoder, self).__init__()
         self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
-        self.knowledge_attention = KnowledgeAttention
         self.encoding_layers = nn.ModuleList(
             [KnowledgeEncoderBlock(d_model=768, nhead=4) for _ in range(4)])
 

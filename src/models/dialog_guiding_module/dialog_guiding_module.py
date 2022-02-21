@@ -2,9 +2,10 @@ from pprint import pprint
 from typing import Iterable, List, Mapping, Tuple
 
 import hy
+import torch
 from torch import Tensor
 from torch import nn
-from transformers import AutoTokenizer, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelWithLMHead, T5ForConditionalGeneration
 
 from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
 from src.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
@@ -15,6 +16,8 @@ class DialogGuidingModule(nn.Module):
     def __init__(self,
                  d_model: int = 768,
                  output_dimensions: int = 512,
+                 soc_chem_checkpoint:
+                 str = 'src/models/social-chemistry-101/rot_checkpoint/',
                  hf_checkpoint: str = 'distilbert-base-uncased'):
         """DialogGuidingModule which extracts knowledge from Atomic, predicts next turn type
         and encodes knowledge via attention heads pointing to pre-Language Model encoder
@@ -26,12 +29,70 @@ class DialogGuidingModule(nn.Module):
         """
 
         super(DialogGuidingModule, self).__init__()
-        #self.next_turn_predictor = AutoModel
+        # TODO: add next_turn prediction
+        self.next_turn_predictor = AutoModel
         self.tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint)
+
+        # used for social chemistry encoder model
+        self.moral_tokenizer = AutoTokenizer.from_pretrained(
+            soc_chem_checkpoint, model_max_length=512)
+
+        self.moral_tokenizer.pad_token = self.moral_tokenizer.eos_token
+        self.moral_gpt = AutoModelWithLMHead.from_pretrained(
+            soc_chem_checkpoint)
+        self.moral_gpt_out = nn.Sequential(nn.Linear(1600, d_model), nn.ReLU())
+
+        self.moral_projection = nn.Sequential(
+            nn.Linear(d_model * 2, d_model * 2), nn.ReLU(),
+            nn.AvgPool1d(kernel_size=2, stride=2))
+        # ---
+
         self.knowledge_attention = KnowledgeAttention(d_model, 4, 4, 4, 4)
         self.knowledge_encoder = KnowledgeAttentionEncoder()
         # prepare input for specific language model head
         self.projection_layer = nn.Linear(d_model, output_dimensions)
+
+    def _produce_moral_encoding(self,
+                                string_repr: str,
+                                moral_attention_head: Tensor,
+                                action_type: str = None) -> Tensor:
+        """Produces moral embedding using pretrained NeuralNormTransformer
+
+        Args:
+            string_repr - (batch of) string to tokenize
+            moral_attention_head - moral attention head from `KnowledgeTransformer`
+
+        Returns:
+            moral attention head
+        """
+        def _prepare_for_label_classification(x: str = string_repr) -> Tensor:
+            """Prepares input representation for specific characteristica classification
+
+            Args:
+                x - Input string (not processed)
+
+            Returns:
+                encoded input string for classification & generation
+            """
+            pass
+
+        ins = self.moral_tokenizer(string_repr,
+                                   truncation=True,
+                                   padding='max_length',
+                                   return_tensors='pt')
+
+        # do not fine-tune social-chemistry-101 gpt2
+        with torch.no_grad():
+            moral_logits = self.moral_gpt(
+                **ins, labels=ins['input_ids'],
+                output_hidden_states=True).hidden_states
+            moral_logits = moral_logits[-1]
+
+        # adding batch size
+        intermediate = self.moral_gpt_out(moral_logits)
+        moral_emb = torch.cat([intermediate, moral_attention_head], dim=-1)
+        out = self.moral_projection(moral_emb)
+        return out
 
     def _knowledge_lookup(
             self,
@@ -114,8 +175,13 @@ class DialogGuidingModule(nn.Module):
                                              mental=mental,
                                              moral=moral)
 
+        moral_head = knowledge['moral']
+        moral = self._produce_moral_encoding(string_repr,
+                                             moral_attention_head=moral_head)
+        knowledge['moral'] = moral
+
         # TODO: add string repr of next turn prediction to knowledge encoder
-        encoded_knowledge = self.knowledge_encoder(x, knowledge)
+        encoded_knowledge = self.knowledge_encoder(x, list(knowledge.values()))
         out = self.projection_layer(encoded_knowledge)
         return out
 
