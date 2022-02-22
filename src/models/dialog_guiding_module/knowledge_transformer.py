@@ -10,7 +10,7 @@ from torch import nn
 from torch.nn import functional as F
 from transformers import AutoModel, T5ForConditionalGeneration, AutoTokenizer
 
-from src.utils import freeze as freeze_weights
+from src.utils import freeze_weights
 
 
 class KnowledgeAttention(nn.Module):

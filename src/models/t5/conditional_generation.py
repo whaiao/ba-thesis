@@ -17,8 +17,8 @@ EPOCHS = 3
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device(
     'cpu')
-tokenizer = T5Tokenizer.from_pretrained(f't5-{argv[-1]}')
-model = T5ForConditionalGeneration.from_pretrained(f't5-{argv[-1]}').to(device)
+tokenizer = T5Tokenizer.from_pretrained(f't5-base')
+model = T5ForConditionalGeneration.from_pretrained(f't5-base').to(device)
 optimizer = AdamW(model.parameters(), lr=3e-4)
 scheduler = get_linear_schedule_with_warmup(optimizer,
                                             num_warmup_steps=0,
@@ -67,7 +67,7 @@ for epoch in range(1, EPOCHS + 1):
             print(f'Epoch: {epoch} - Step: {i} - Loss: {loss.item()}')
 
     eval_running_loss = 0.0
-    for i, sample in enumerate(tqdm(eval), start=1):
+    for i, sample in enumerate(tqdm(val), start=1):
         with torch.no_grad():
             x, y = sample.values()
             inputs = encode(x, y, tokenizer)
@@ -80,7 +80,7 @@ for epoch in range(1, EPOCHS + 1):
             )
 
     avg_train_loss = running_loss / len(train)
-    avg_eval_loss = eval_running_loss / len(eval)
+    avg_eval_loss = eval_running_loss / len(val)
     print(
         f'Epoch: {epoch} - Average Training Loss: {avg_train_loss} - Average Validation Loss: {avg_eval_loss}'
     )
@@ -92,5 +92,5 @@ for epoch in range(1, EPOCHS + 1):
             {
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
             }, 'checkpoints/turn_prediction.pt')

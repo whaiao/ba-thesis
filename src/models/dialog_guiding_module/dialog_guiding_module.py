@@ -12,7 +12,7 @@ from src.constants import T5_TURN_TEMPLATES
 from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
 from src.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
 from src.models.dialog_transformer import DialogTransformer
-from src.utils import freeze as freeze_weights
+from src.utils import freeze_weights
 
 
 class DialogGuidingModule(nn.Module):
@@ -215,16 +215,10 @@ class DialogGuidingModule(nn.Module):
         next_turn_type = int(
             self._classify_next_turn_type(string_repr).detach().numpy())
         new_representation = self.templates[next_turn_type] + string_repr
-        print(new_representation)
-
         encoded_knowledge = self.knowledge_encoder(new_representation,
                                                    list(knowledge.values()))
 
-        print(encoded_knowledge.shape)
-
-        #encoded_knowledge = self.knowledge_encoder(x, list(knowledge.values()))
         out = self.projection_layer(encoded_knowledge)
-        print(out)
         return out
 
 
@@ -236,8 +230,8 @@ if __name__ == "__main__":
     dialog_transformer = DialogTransformer(768)
     model = DialogGuidingModule(
         output_dimensions=768,
-        hf_checkpoint=
-        'benjaminbeilharz/distilbert-base-uncased-next-turn-classifier')
+        hf_checkpoint='benjaminbeilharz/bert-base-uncased-next-turn-classifier'
+    )
     hist = 'how do you feel this evening?'
     query = 'i feel like i am dying'
     nxt = 'this is sad to hear, are you sure you don\'t to get help'
