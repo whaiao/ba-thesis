@@ -2,13 +2,15 @@ from collections import OrderedDict
 from copy import deepcopy
 from math import sqrt
 from pprint import pprint
-from typing import Callable, Iterable, Tuple, Optional, Union, OrderedDict
+from typing import Callable, Iterable, List, Mapping, Tuple, Optional, Union, OrderedDict
 
 import torch
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
 from transformers import AutoModel, T5ForConditionalGeneration, AutoTokenizer
+
+from src.utils import freeze as freeze_weights
 
 
 class KnowledgeAttention(nn.Module):
@@ -20,6 +22,7 @@ class KnowledgeAttention(nn.Module):
                  n_moral_heads: int,
                  dropout: float = .1,
                  hf_checkpoint: str = 'distilbert-base-uncased',
+                 use_pretrained: bool = False,
                  share_weights: bool = False):
         """Knowledge Attention Module incooperating external knowledge
         Args:
@@ -43,14 +46,23 @@ class KnowledgeAttention(nn.Module):
 
         self.dropout = dropout
         self.share_weights = share_weights
+        self.use_pretrained = use_pretrained
         self.tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint)
-        self.encoder = AutoModel.from_pretrained(hf_checkpoint)
+
+        if use_pretrained:
+            self.encoder = AutoModel.from_pretrained(hf_checkpoint)
+        else:
+            self.embedding = nn.Embedding(self.tokenizer.vocab_size, embed_dim)
+            self.transformer_encoder_layer = nn.TransformerEncoderLayer(
+                embed_dim, nhead=8, batch_first=True)
+            self.encoder = nn.TransformerEncoder(
+                self.transformer_encoder_layer, num_layers=2)
 
         # use the same weights to encode matrices
         if self.share_weights:
             self.linear = nn.Linear(self.d_model, self.d_model * 3)
             self.upscale = nn.Linear(self.d_model, self.d_model * 2)
-            self.pooling = nn.AdaptiveAvgPool1d(self.d_model)
+            self.pooling = nn.AvgPool1d(kernel_size=2, stride=2)
         else:
             self.context_linear = nn.Linear(self.d_model, self.d_model * 3)
             self.event_linear = deepcopy(self.context_linear)
@@ -86,6 +98,7 @@ class KnowledgeAttention(nn.Module):
         attn_logits = torch.matmul(q, k.transpose(-2, -1))
         attn_logits = attn_logits / sqrt(d_k)
         if mask is not None:
+            # change mask values to make them consistent with other masks
             attn_logits = attn_logits.masked_fill(mask == 0, -9e15)
         attention = F.softmax(attn_logits, dim=-1)
         if dropout > 0.0:
@@ -123,15 +136,36 @@ class KnowledgeAttention(nn.Module):
 
     def _prepare_knowledge(self, event: str, mental: str,
                            moral: str) -> Tuple[Tensor]:
-        def encode(x: str) -> Tensor:
-            return self.tokenizer(x,
-                                  truncation=True,
-                                  padding='max_length',
-                                  return_tensors='pt')
+        def encode(x: str) -> Union[Tensor, Mapping[str, Tensor]]:
+            if self.use_pretrained:
+                return self.tokenizer(x,
+                                      truncation=True,
+                                      padding='max_length',
+                                      return_tensors='pt')
+            else:
+                tokenized = self.tokenizer(x,
+                                           truncation=True,
+                                           padding='max_length',
+                                           return_tensors='pt')
+                emb = self.embedding(tokenized.input_ids)
+                mask = tokenized.attention_mask
 
-        event = self.encoder(**encode(event)).last_hidden_state
-        mental = self.encoder(**encode(mental)).last_hidden_state
-        moral = self.encoder(**encode(moral)).last_hidden_state
+                return {'src': emb, 'src_key_padding_mask': mask}
+
+        if self.use_pretrained:
+            event = self.encoder(**encode(event)).last_hidden_state
+            mental = self.encoder(**encode(mental)).last_hidden_state
+            moral = self.encoder(**encode(moral)).last_hidden_state
+        # if using custom encoding layers
+        else:
+            event_tok = encode(event)
+            mental_tok = encode(mental)
+            moral_tok = encode(moral)
+
+            event = self.encoder(**event_tok)
+            mental = self.encoder(**mental_tok)
+            moral = self.encoder(**moral_tok)
+
         return (event, mental, moral)
 
     def forward(
@@ -191,7 +225,6 @@ class KnowledgeAttention(nn.Module):
             moral_o = self.moral_upscale(moral_o)
             out = OrderedDict([('context', context_o), ('moral', moral_o),
                                ('mental', mental_o), ('event', mental_o)])
-            # return (context_o, event_o, mental_o, moral_o)
             return out
 
 
@@ -408,9 +441,13 @@ class KnowledgeEncoderBlock(nn.TransformerEncoderLayer):
 
 
 class KnowledgeAttentionEncoder(nn.Module):
-    def __init__(self, encoder_checkpoint: str = 'distilbert-base-uncased'):
+    def __init__(self,
+                 encoder_checkpoint: str = 'distilbert-base-uncased',
+                 freeze_encoder: bool = True):
         super(KnowledgeAttentionEncoder, self).__init__()
         self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
+        if freeze_encoder:
+            freeze_weights(self.encoder)
         self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
         self.encoding_layers = nn.ModuleList(
             [KnowledgeEncoderBlock(d_model=768, nhead=4) for _ in range(4)])
@@ -421,7 +458,7 @@ class KnowledgeAttentionEncoder(nn.Module):
         assert len(knowledge_attn_heads) == len(
             self.encoding_layers
         ), 'Number of attention encoding layers does not match number of knowledge attention heads'
-        if isinstance(x, str):
+        if isinstance(x, str) or isinstance(x, List[str]):
             encode = self.tokenizer(x,
                                     truncation=True,
                                     padding='max_length',
@@ -433,6 +470,7 @@ class KnowledgeAttentionEncoder(nn.Module):
         for layer, knowledge_attn_head in zip(self.encoding_layers,
                                               knowledge_attn_heads):
             x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
+
         return x
 
 
@@ -469,4 +507,3 @@ if __name__ == "__main__":
     # batch_size must be fitting
     dec = encode(['This is a sample', 'And another one'], t5_tok).input_ids
     out = t5(inputs_embeds=t5_in, labels=dec)
-    pprint(out)

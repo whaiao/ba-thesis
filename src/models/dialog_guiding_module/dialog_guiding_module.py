@@ -1,15 +1,18 @@
 from pprint import pprint
-from typing import Iterable, List, Mapping, Tuple
+from typing import Iterable, List, Mapping, Tuple, Union
 
+# hy needed for modules written in hy-lang [knowledge_extraction]
 import hy
 import torch
 from torch import Tensor
 from torch import nn
-from transformers import AutoTokenizer, AutoModelWithLMHead, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModelWithLMHead, T5ForConditionalGeneration, AutoModelForSequenceClassification
 
+from src.constants import T5_TURN_TEMPLATES
 from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
 from src.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
 from src.models.dialog_transformer import DialogTransformer
+from src.utils import freeze as freeze_weights
 
 
 class DialogGuidingModule(nn.Module):
@@ -29,8 +32,12 @@ class DialogGuidingModule(nn.Module):
         """
 
         super(DialogGuidingModule, self).__init__()
-        # TODO: add next_turn prediction
-        self.next_turn_predictor = AutoModel
+
+        # predict next turn and prepend template
+        self.templates = T5_TURN_TEMPLATES
+        self.next_turn_predictor = AutoModelForSequenceClassification.from_pretrained(
+            hf_checkpoint)
+        freeze_weights(self.next_turn_predictor)
         self.tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint)
 
         # used for social chemistry encoder model
@@ -41,6 +48,7 @@ class DialogGuidingModule(nn.Module):
         self.moral_gpt = AutoModelWithLMHead.from_pretrained(
             soc_chem_checkpoint)
         self.moral_gpt_out = nn.Sequential(nn.Linear(1600, d_model), nn.ReLU())
+        freeze_weights(self.moral_gpt)
 
         self.moral_projection = nn.Sequential(
             nn.Linear(d_model * 2, d_model * 2), nn.ReLU(),
@@ -51,6 +59,25 @@ class DialogGuidingModule(nn.Module):
         self.knowledge_encoder = KnowledgeAttentionEncoder()
         # prepare input for specific language model head
         self.projection_layer = nn.Linear(d_model, output_dimensions)
+
+    def _classify_next_turn_type(
+        self, string_repr: Union[str, Iterable[str]]
+    ) -> Union[Tensor, Tuple[str, Tensor]]:
+        """Classify next turn type
+        
+        Args:
+            string_repr - stirng or batch of string representations to classify
+
+        Returns:
+            next turn type label"""
+        tokenized = self.tokenizer(string_repr,
+                                   truncation=True,
+                                   padding='max_length',
+                                   return_tensors='pt')
+        out = self.next_turn_predictor(**tokenized)
+        logits = out.logits
+        preds = torch.argmax(logits, dim=-1)
+        return preds
 
     def _produce_moral_encoding(self,
                                 string_repr: str,
@@ -170,6 +197,9 @@ class DialogGuidingModule(nn.Module):
             encoded representation for language model head
         """
         event, mental, moral = self.parse(string_repr)
+        print('Event knowledge: ', event)
+        print('Mental knowledge: ', mental)
+        print('Moral knowledge: ', moral)
         knowledge = self.knowledge_attention(x,
                                              event=event,
                                              mental=mental,
@@ -181,16 +211,33 @@ class DialogGuidingModule(nn.Module):
         knowledge['moral'] = moral
 
         # TODO: add string repr of next turn prediction to knowledge encoder
-        encoded_knowledge = self.knowledge_encoder(x, list(knowledge.values()))
+        # add batch encoding
+        next_turn_type = int(
+            self._classify_next_turn_type(string_repr).detach().numpy())
+        new_representation = self.templates[next_turn_type] + string_repr
+        print(new_representation)
+
+        encoded_knowledge = self.knowledge_encoder(new_representation,
+                                                   list(knowledge.values()))
+
+        print(encoded_knowledge.shape)
+
+        #encoded_knowledge = self.knowledge_encoder(x, list(knowledge.values()))
         out = self.projection_layer(encoded_knowledge)
+        print(out)
         return out
 
 
 if __name__ == "__main__":
-    tok = AutoTokenizer.from_pretrained('t5-small')
-    t5 = T5ForConditionalGeneration.from_pretrained('t5-small')
+    tok = AutoTokenizer.from_pretrained('t5-base')
+    # small = 512
+    # base = 768 embedding size
+    t5 = T5ForConditionalGeneration.from_pretrained('t5-base')
     dialog_transformer = DialogTransformer(768)
-    model = DialogGuidingModule()
+    model = DialogGuidingModule(
+        output_dimensions=768,
+        hf_checkpoint=
+        'benjaminbeilharz/distilbert-base-uncased-next-turn-classifier')
     hist = 'how do you feel this evening?'
     query = 'i feel like i am dying'
     nxt = 'this is sad to hear, are you sure you don\'t to get help'
@@ -198,4 +245,5 @@ if __name__ == "__main__":
     out = model(x, query)
     nxt = tok(nxt, truncation=True, padding='max_length',
               return_tensors='pt').input_ids
-    pprint(t5(inputs_embeds=out, labels=nxt))
+    out = t5(inputs_embeds=out, labels=nxt)
+    print(out)
