@@ -4,7 +4,7 @@ General utils for project
 """
 from functools import partial
 from multiprocessing import cpu_count
-from typing import List, Union, Callable, Iterable, TypeVar
+from typing import List, Union, Callable, Iterable, TypeVar, Tuple
 
 import jax.numpy as jnp
 from multiprocess.pool import Pool, AsyncResult
@@ -14,7 +14,6 @@ import torch
 from torch import Tensor
 
 Dataframe = pd.DataFrame
-
 T = TypeVar('T', np.ndarray, jnp.ndarray, torch.Tensor)
 
 
@@ -80,10 +79,23 @@ def multiprocess_dataset(f: Callable, dataset: Dataframe,
     return res
 
 
-def freeze(m: torch.nn.Module):
+def freeze_weights(m: torch.nn.Module):
     m.eval()
     for p in m.parameters():
         p.requires_grad = False
+
+
+def init_from_checkpoint(
+    checkpoint: str, model: torch.nn.Module, optimizer: torch.optim.Optimizer
+) -> Tuple[torch.nn.Module, torch.optim.Optimizer]:
+    model = model
+    optim = optimizer
+    checkpoint = torch.load(checkpoint)
+
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optim.load_state_dict(checkpoint['optimizer_state_dict'])
+
+    return model, optim
 
 
 def count_params(m: torch.nn.Module):
