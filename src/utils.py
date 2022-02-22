@@ -11,6 +11,7 @@ from multiprocess.pool import Pool, AsyncResult
 import numpy as np
 import pandas as pd
 import torch
+from torch import Tensor
 
 Dataframe = pd.DataFrame
 
@@ -77,3 +78,18 @@ def multiprocess_dataset(f: Callable, dataset: Dataframe,
         res = p.map(fn, data)  # , chunksize=chunk_size)
 
     return res
+
+
+def freeze(m: torch.nn.Module):
+    m.eval()
+    for p in m.parameters():
+        p.requires_grad = False
+
+
+def count_params(m: torch.nn.Module):
+    return {
+        'requires_grad':
+        sum([p.numel() for p in m.parameters() if p.requires_grad]),
+        'total_params':
+        sum([p.numel() for p in m.parameters()])
+    }

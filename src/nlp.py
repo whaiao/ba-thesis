@@ -12,7 +12,7 @@ from spacy.tokens.doc import Doc
 from spacy.tokens.token import Token
 
 from src.constants import DATA_ROOT
-from src.utils import sorted_dict
+from src.utils import sorted_dict, freeze
 from src.data.save import to_pickle
 
 # dtypes and constants
