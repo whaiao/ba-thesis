@@ -20,7 +20,7 @@ class DialogGuidingModule(nn.Module):
                  d_model: int = 768,
                  output_dimensions: int = 512,
                  soc_chem_checkpoint:
-                 str = 'src/models/social-chemistry-101/rot_checkpoint/',
+                 str = 'src/models/social-chemistry-101/rot_checkpoint',
                  hf_checkpoint: str = 'distilbert-base-uncased'):
         """DialogGuidingModule which extracts knowledge from Atomic, predicts next turn type
         and encodes knowledge via attention heads pointing to pre-Language Model encoder
@@ -197,9 +197,6 @@ class DialogGuidingModule(nn.Module):
             encoded representation for language model head
         """
         event, mental, moral = self.parse(string_repr)
-        print('Event knowledge: ', event)
-        print('Mental knowledge: ', mental)
-        print('Moral knowledge: ', moral)
         knowledge = self.knowledge_attention(x,
                                              event=event,
                                              mental=mental,
@@ -223,21 +220,22 @@ class DialogGuidingModule(nn.Module):
 
 
 if __name__ == "__main__":
-    tok = AutoTokenizer.from_pretrained('t5-base')
-    # small = 512
-    # base = 768 embedding size
-    t5 = T5ForConditionalGeneration.from_pretrained('t5-base')
-    dialog_transformer = DialogTransformer(768)
-    model = DialogGuidingModule(
-        output_dimensions=768,
-        hf_checkpoint='benjaminbeilharz/bert-base-uncased-next-turn-classifier'
-    )
-    hist = 'how do you feel this evening?'
-    query = 'i feel like i am dying'
-    nxt = 'this is sad to hear, are you sure you don\'t to get help'
-    x = dialog_transformer(hist, query)
-    out = model(x, query)
-    nxt = tok(nxt, truncation=True, padding='max_length',
-              return_tensors='pt').input_ids
-    out = t5(inputs_embeds=out, labels=nxt)
-    print(out)
+    pass
+    #tok = AutoTokenizer.from_pretrained('t5-base')
+    ## small = 512
+    ## base = 768 embedding size
+    #t5 = T5ForConditionalGeneration.from_pretrained('t5-base')
+    #dialog_transformer = DialogTransformer(768)
+    #model = DialogGuidingModule(
+    #    output_dimensions=768,
+    #    hf_checkpoint='benjaminbeilharz/bert-base-uncased-next-turn-classifier'
+    #)
+    #hist = 'how do you feel this evening?'
+    #query = 'i feel like i am dying'
+    #nxt = 'this is sad to hear, are you sure you don\'t to get help'
+    #x = dialog_transformer(hist, query)
+    #out = model(x, query)
+    #nxt = tok(nxt, truncation=True, padding='max_length',
+    #          return_tensors='pt').input_ids
+    #out = t5(inputs_embeds=out, labels=nxt)
+    #print(out)

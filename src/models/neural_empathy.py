@@ -4,12 +4,12 @@ from pprint import pprint
 import torch
 from torch import Tensor
 from torch import nn
-from transformers import AutoTokenizer, T5ForConditionalGeneration, AdamW, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
 from src.models.dialog_guiding_module.dialog_guiding_module import DialogGuidingModule
 from src.models.dialog_transformer import DialogTransformer
-from src.utils import init_from_checkpoint, freeze_weights
+from src.utils import freeze_weights
 
 
 @dataclass
@@ -26,7 +26,7 @@ class ModelConfig:
 
     # dialog guiding module
     output_dimensions: int = 768
-    soc_chem_checkpoint: str = 'checkpoints/rot_checkpoint'
+    soc_chem_checkpoint: str = 'src/models/social-chemistry-101/rot_checkpoint'
     hf_checkpoint: str = 'benjaminbeilharz/bert-base-uncased-next-turn-classifier'
 
     # language model head
