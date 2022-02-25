@@ -120,7 +120,7 @@ class Trainer:
             target: str,
             train: bool = True) -> Tuple[Tensor, Mapping[str, float]]:
         preds = torch.softmax(logits, dim=-1)
-        preds = torch.argmax(preds, dim=-1).squeeze(0)
+        preds = torch.argmax(preds, dim=1).squeeze(0)
         preds = self.model.lm_tokenizer.decode(preds, skip_special_tokens=True)
 
         if train:
@@ -201,7 +201,7 @@ class Trainer:
                     self.optimizer.zero_grad()
 
                 current_generation, metrics = self._predict_and_calculate_metrics(
-                    logits, turn[-1][-1])
+                    logits, turn[-1])
 
                 print(
                     f'Epoch: {epoch}\tTraining Loss: {np.mean(train_running_loss)}\tPerplexity: {torch.exp(loss)}\nCurrent Generation: {current_generation}'

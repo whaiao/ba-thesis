@@ -95,9 +95,11 @@
             ; working with placeholders vs. substituted strings?
             candidates (list (.keys search-results))
             n-cand (len candidates)
-            padded-reference (lfor i (range n-cand) phrase)
+            padded-reference (lfor i (range n-cand) phrase))
             ;; precision recall f1
-            [P R F] (.score scorer :refs padded-reference
+      (if (= (len candidates) 0)
+        (return None))
+            (setv [P R F] (.score scorer :refs padded-reference
                                    :cands candidates)
             amax (.argmax torch F :dim -1))
       (.append res (get search-results (get candidates amax)))))

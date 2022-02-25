@@ -66,7 +66,7 @@ class DialogGuidingModule(nn.Module):
         """Classify next turn type
         
         Args:
-            string_repr - stirng or batch of string representations to classify
+            string_repr - string or batch of string representations to classify
 
         Returns:
             next turn type label"""
@@ -132,8 +132,11 @@ class DialogGuidingModule(nn.Module):
         Returns:
             knowledge mappings
         """
+        overlaps = retrieve_overlap(query)
+        if overlaps is None:
+            return None
 
-        return extract_from_atomic(retrieve_overlap(query))
+        return extract_from_atomic(overlaps)
 
     def _prepare_relations(
         self, samples: Iterable[Mapping[str,
@@ -147,13 +150,17 @@ class DialogGuidingModule(nn.Module):
         Returns:
             knowledge encoded strings to be encoded
         """
+        if samples is None:
+            return ('none', 'none', 'none')
 
         mental = ''
         event = ''
         moral = ''
 
         def extract(tails: Iterable[str]) -> str:
-            return ' '.join(tails)
+            return ' '.join((t for t in tails if t != 'none'))
+
+        # check if samples acutally have a sample
 
         for sample in samples:
             for entry in sample.values():
@@ -207,7 +214,6 @@ class DialogGuidingModule(nn.Module):
                                              moral_attention_head=moral_head)
         knowledge['moral'] = moral
 
-        # TODO: add string repr of next turn prediction to knowledge encoder
         # add batch encoding
         next_turn_type = int(
             self._classify_next_turn_type(string_repr).detach().numpy())
