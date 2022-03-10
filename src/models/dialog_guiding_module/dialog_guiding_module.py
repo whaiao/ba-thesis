@@ -21,7 +21,8 @@ class DialogGuidingModule(nn.Module):
                  output_dimensions: int = 512,
                  soc_chem_checkpoint:
                  str = 'src/models/social-chemistry-101/rot_checkpoint',
-                 hf_checkpoint: str = 'distilbert-base-uncased'):
+                 hf_checkpoint: str = 'distilbert-base-uncased',
+                 device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         """DialogGuidingModule which extracts knowledge from Atomic, predicts next turn type
         and encodes knowledge via attention heads pointing to pre-Language Model encoder
 
@@ -34,6 +35,7 @@ class DialogGuidingModule(nn.Module):
         super(DialogGuidingModule, self).__init__()
 
         # predict next turn and prepend template
+        self.device = device
         self.templates = T5_TURN_TEMPLATES
         self.next_turn_predictor = AutoModelForSequenceClassification.from_pretrained(
             hf_checkpoint)
@@ -46,13 +48,13 @@ class DialogGuidingModule(nn.Module):
 
         self.moral_tokenizer.pad_token = self.moral_tokenizer.eos_token
         self.moral_gpt = AutoModelWithLMHead.from_pretrained(
-            soc_chem_checkpoint)
+            soc_chem_checkpoint).to(self.device)
         self.moral_gpt_out = nn.Sequential(nn.Linear(1600, d_model), nn.ReLU())
         freeze_weights(self.moral_gpt)
 
         self.moral_projection = nn.Sequential(
             nn.Linear(d_model * 2, d_model * 2), nn.ReLU(),
-            nn.AvgPool1d(kernel_size=2, stride=2))
+            nn.MaxPool1d(kernel_size=2, stride=2))
         # ---
 
         self.knowledge_attention = KnowledgeAttention(d_model, 4, 4, 4, 4)
@@ -73,7 +75,7 @@ class DialogGuidingModule(nn.Module):
         tokenized = self.tokenizer(string_repr,
                                    truncation=True,
                                    padding='max_length',
-                                   return_tensors='pt')
+                                   return_tensors='pt').to(self.device)
         out = self.next_turn_predictor(**tokenized)
         logits = out.logits
         preds = torch.argmax(logits, dim=-1)
@@ -107,6 +109,8 @@ class DialogGuidingModule(nn.Module):
                                    truncation=True,
                                    padding='max_length',
                                    return_tensors='pt')
+
+        ins = {k: v.to(self.device) for k, v in ins.items()}
 
         # do not fine-tune social-chemistry-101 gpt2
         with torch.no_grad():
@@ -158,6 +162,7 @@ class DialogGuidingModule(nn.Module):
         moral = ''
 
         def extract(tails: Iterable[str]) -> str:
+            tails = list(filter(lambda x: isinstance(x, str), tails))
             return ' '.join((t for t in tails if t != 'none'))
 
         # check if samples acutally have a sample
@@ -216,7 +221,7 @@ class DialogGuidingModule(nn.Module):
 
         # add batch encoding
         next_turn_type = int(
-            self._classify_next_turn_type(string_repr).detach().numpy())
+            self._classify_next_turn_type(string_repr).cpu().detach().numpy())
         new_representation = self.templates[next_turn_type] + string_repr
         encoded_knowledge = self.knowledge_encoder(new_representation,
                                                    list(knowledge.values()))

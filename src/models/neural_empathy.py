@@ -4,7 +4,7 @@ from pprint import pprint
 import torch
 from torch import Tensor
 from torch import nn
-from transformers import AutoTokenizer, T5ForConditionalGeneration
+from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration, AutoModelForCausalLM
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
 from src.models.dialog_guiding_module.dialog_guiding_module import DialogGuidingModule
@@ -26,11 +26,11 @@ class ModelConfig:
 
     # dialog guiding module
     output_dimensions: int = 768
-    soc_chem_checkpoint: str = 'src/models/social-chemistry-101/rot_checkpoint'
+    soc_chem_checkpoint: str = 'checkpoints/rot_checkpoint'
     hf_checkpoint: str = 'benjaminbeilharz/bert-base-uncased-next-turn-classifier'
 
     # language model head
-    lm_checkpoint: str = 't5-base'
+    lm_checkpoint: str = 'benjaminbeilharz/t5-conditioned-next-turn'
     pt_checkpoint: str = 'checkpoints/t5_generator.pt'
     resume_training: bool = True
 
@@ -39,23 +39,28 @@ class NeuralEmpathy(nn.Module):
     def __init__(self, cfg: ModelConfig):
         super(NeuralEmpathy, self).__init__()
         self.cfg = cfg
-        self.dialog_transformer = DialogTransformer(
-            d_model=self.cfg.d_model,
-            n_enc_heads=self.cfg.n_enc_heads,
-            n_enc_layers=self.cfg.n_enc_layers,
-            n_dec_heads=self.cfg.n_dec_heads,
-            n_dec_layers=self.cfg.n_dec_layers)
+        #self.dialog_transformer = DialogTransformer(
+        #    d_model=self.cfg.d_model,
+        #    n_enc_heads=self.cfg.n_enc_heads,
+        #    n_enc_layers=self.cfg.n_enc_layers,
+        #    n_dec_heads=self.cfg.n_dec_heads,
+        #    n_dec_layers=self.cfg.n_dec_layers).to(self.cfg.device)
+
+        self.dialog_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        self.dialog_transformer = AutoModel.from_pretrained('bert-base-uncased').to(self.cfg.device)
 
         self.dialog_guiding_module = DialogGuidingModule(
             d_model=self.cfg.d_model,
             output_dimensions=self.cfg.output_dimensions,
             soc_chem_checkpoint=self.cfg.soc_chem_checkpoint,
-            hf_checkpoint=self.cfg.hf_checkpoint)
+            hf_checkpoint=self.cfg.hf_checkpoint).to(self.cfg.device)
 
-        self.lm_tokenizer = AutoTokenizer.from_pretrained(
-            self.cfg.lm_checkpoint)
-        self.lm_head = T5ForConditionalGeneration.from_pretrained(
-            self.cfg.lm_checkpoint)
+
+        if 't5' in self.cfg.lm_checkpoint:
+            self.lm_head = T5ForConditionalGeneration.from_pretrained(self.cfg.lm_checkpoint).to(self.cfg.device)
+            self.lm_tokenizer = AutoTokenizer.from_pretrained('t5-base')
+        elif 'DialoGPT' in self.cfg.lm_checkpoint:
+            self.lm_head = AutoModelForCausalLM.from_pretrained('microsoft/DialoGPT-medium').to(self.cfg.device)
         if self.cfg.resume_training:
             pass
 
@@ -80,33 +85,66 @@ class NeuralEmpathy(nn.Module):
             for p in module.parameters():
                 p.requires_grad = True
 
-    def _prepare_t5_input(self, next_turn: str) -> Tensor:
+    def _prepare_lm_input(self, next_turn: str) -> Tensor:
         labels = self.lm_tokenizer(next_turn,
                                    padding='longest',
                                    max_length=128,
                                    truncation=True,
                                    return_tensors='pt').input_ids
         labels[labels == self.lm_tokenizer.pad_token_id] = -100
-        return labels
+        return labels.to(self.cfg.device)
+
+    def inference(self, history: str, turn: str, **generation_settings=None):
+        """Inference step to generate a response
+
+        Args:
+            history - dialog history
+            turn - current input
+            generation_settings - generation strategy to let language model generate
+        
+        Returns:
+            a natural language response
+        """
+        if hasattr(self, 'dialog_tokenizer'):
+            tokenized = self.dialog_tokenizer(history, 
+                    turn, 
+                    truncation=True, 
+                    padding='max_length', 
+                    return_tensors='pt').to(self.cfg.device)
+            encoded_history = self.dialog_transformer(**tokenized).last_hidden_state
+        else:
+            encoded_history = self.dialog_transformer(history, turn)
+        knowledge_encoding = self.dialog_guiding_module(encoded_history, turn)
+        if 't5' in self.cfg.lm_checkpoint:
+            next_utterance = self._prepare_lm_input(next)
+        else:
+            next_utterance = knowledge_encoding
+         
+        knowledge_encoding2tokens = torch.argmax(knowledge_encoding, dim=-1)
+
+        # if settings are not supplied, use default arguments to generate
+        if generation_settings is None:
+            outputs = model.generate(input_ids=knowledge_encoding2tokens)
+        else:
+            outputs = model.generate(input_ids=knowledge_encoding2tokens, **generation_settings)
+
+        generated = self.lm_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return generated
+
 
     def forward(self, history: str, turn: str, next: str) -> Seq2SeqLMOutput:
-        encoded_history = self.dialog_transformer(history, turn)
+        if hasattr(self, 'dialog_tokenizer'):
+            tokenized = self.dialog_tokenizer(history, turn, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
+            encoded_history = self.dialog_transformer(**tokenized).last_hidden_state
+        else:
+            encoded_history = self.dialog_transformer(history, turn)
         knowledge_encoding = self.dialog_guiding_module(encoded_history, turn)
-        next_utterance = self._prepare_t5_input(next)
+        if 't5' in self.cfg.lm_checkpoint:
+            next_utterance = self._prepare_lm_input(next)
+        else:
+            next_utterance = knowledge_encoding
+         
         out = self.lm_head(inputs_embeds=knowledge_encoding,
                            labels=next_utterance)
         return out
 
-
-if __name__ == "__main__":
-    cfg = ModelConfig(
-        soc_chem_checkpoint='src/models/social-chemistry-101/rot_checkpoint',
-        resume_training=False)
-    model = NeuralEmpathy(cfg=cfg)
-
-    hist = 'how do you feel this evening?'
-    query = 'i feel like i am dying'
-    nxt = 'this is sad to hear, are you sure you don\'t to get help'
-
-    out = model(hist, query, nxt)
-    pprint(out)

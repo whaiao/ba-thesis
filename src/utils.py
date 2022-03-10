@@ -4,6 +4,7 @@ General utils for project
 """
 from functools import partial
 from multiprocessing import cpu_count
+from pprint import pprint
 from typing import List, Union, Callable, Iterable, TypeVar, Tuple
 
 import jax.numpy as jnp
@@ -92,8 +93,8 @@ def init_from_checkpoint(
     optim = optimizer
     checkpoint = torch.load(checkpoint)
 
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optim.load_state_dict(checkpoint['optimizer_state_dict'])
+    model.load_state_dict(state_dict=checkpoint['model'])
+    optim.load_state_dict(state_dict=checkpoint['optim'])
 
     return model, optim
 

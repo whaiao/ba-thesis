@@ -23,7 +23,8 @@ class KnowledgeAttention(nn.Module):
                  dropout: float = .1,
                  hf_checkpoint: str = 'distilbert-base-uncased',
                  use_pretrained: bool = False,
-                 share_weights: bool = False):
+                 share_weights: bool = False,
+                 device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         """Knowledge Attention Module incooperating external knowledge
         Args:
             embed_dim - model dimension (use same as knowledge encoder)
@@ -36,6 +37,7 @@ class KnowledgeAttention(nn.Module):
         """
 
         super(KnowledgeAttention, self).__init__()
+        self.device = device
         self.d_model = embed_dim
         self.n_context_heads = n_context_heads
         self.n_event_heads = n_event_heads
@@ -62,7 +64,7 @@ class KnowledgeAttention(nn.Module):
         if self.share_weights:
             self.linear = nn.Linear(self.d_model, self.d_model * 3)
             self.upscale = nn.Linear(self.d_model, self.d_model * 2)
-            self.pooling = nn.AvgPool1d(kernel_size=2, stride=2)
+            self.pooling = nn.MaxPool1d(kernel_size=2, stride=2)
         else:
             self.context_linear = nn.Linear(self.d_model, self.d_model * 3)
             self.event_linear = deepcopy(self.context_linear)
@@ -72,7 +74,7 @@ class KnowledgeAttention(nn.Module):
             # upscale
             self.context_upscale = nn.Sequential(
                 nn.Linear(self.d_model, self.d_model * 2), nn.ReLU(),
-                nn.AvgPool1d(kernel_size=2, stride=2))
+                nn.MaxPool1d(kernel_size=2, stride=2))
             self.event_upscale = deepcopy(self.context_upscale)
             self.mental_upscale = deepcopy(self.context_upscale)
             self.moral_upscale = deepcopy(self.context_upscale)
@@ -147,10 +149,10 @@ class KnowledgeAttention(nn.Module):
                                            truncation=True,
                                            padding='max_length',
                                            return_tensors='pt')
-                emb = self.embedding(tokenized.input_ids)
+                emb = self.embedding(tokenized.input_ids.to(self.device))
                 mask = tokenized.attention_mask
 
-                return {'src': emb, 'src_key_padding_mask': mask}
+                return {'src': emb.to(self.device), 'src_key_padding_mask': mask.to(self.device)}
 
         if self.use_pretrained:
             event = self.encoder(**encode(event)).last_hidden_state
@@ -443,8 +445,10 @@ class KnowledgeEncoderBlock(nn.TransformerEncoderLayer):
 class KnowledgeAttentionEncoder(nn.Module):
     def __init__(self,
                  encoder_checkpoint: str = 'distilbert-base-uncased',
-                 freeze_encoder: bool = True):
+                 freeze_encoder: bool = True,
+                 device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         super(KnowledgeAttentionEncoder, self).__init__()
+        self.device = device
         self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
         if freeze_encoder:
             freeze_weights(self.encoder)
@@ -463,9 +467,10 @@ class KnowledgeAttentionEncoder(nn.Module):
                                     truncation=True,
                                     padding='max_length',
                                     return_tensors='pt')
+            encode = {k: v.to(self.device) for k, v in encode.items()}
             x = self.encoder(**encode).last_hidden_state
         elif isinstance(x, torch.FloatTensor):
-            x = self.encoder(inputs_embeds=x).last_hidden_state
+            x = self.encoder(inputs_embeds=x).last_hidden_state.to(self.device)
 
         for layer, knowledge_attn_head in zip(self.encoding_layers,
                                               knowledge_attn_heads):

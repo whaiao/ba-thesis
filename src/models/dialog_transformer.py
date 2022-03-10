@@ -15,7 +15,8 @@ class HistoryEncoder(nn.Module):
                  tokenizer: PreTrainedTokenizer,
                  d_model: int = 768,
                  n_heads: int = 8,
-                 n_layers: int = 2):
+                 n_layers: int = 2,
+                 device: torch.device = 'cpu'):
         """Chat History Transformer Encoder
 
         Args:
@@ -27,6 +28,7 @@ class HistoryEncoder(nn.Module):
         super(HistoryEncoder, self).__init__()
         assert d_model % n_heads == 0, 'Embedding dim not divisable through number of heads'
         self.tokenizer = tokenizer
+        self.device = device
         self.vocab_size = self.tokenizer.vocab_size
         self.embedding = nn.Embedding(self.vocab_size, d_model)
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model,
@@ -47,8 +49,8 @@ class HistoryEncoder(nn.Module):
                                    truncation=True,
                                    padding='max_length',
                                    return_tensors='pt')
-        input_ids = tokenized.input_ids
-        attention_mask = tokenized.attention_mask.to(torch.bool)
+        input_ids = tokenized.input_ids.to(self.device)
+        attention_mask = tokenized.attention_mask.to(torch.bool).to(self.device)
         return (input_ids, attention_mask)
 
     def forward(self, x: Union[str, Iterable[str]]) -> Tuple[Tensor]:
@@ -71,7 +73,8 @@ class UtteranceDecoder(nn.Module):
                  tokenizer: PreTrainedTokenizer,
                  d_model: int = 768,
                  n_heads: int = 16,
-                 n_layers: int = 8):
+                 n_layers: int = 8,
+                 device: torch.device = 'cpu'):
         """Utterance Transformer Decoder
 
         Args:
@@ -82,6 +85,7 @@ class UtteranceDecoder(nn.Module):
         """
         super(UtteranceDecoder, self).__init__()
         self.tokenizer = tokenizer
+        self.device = device
         self.vocab_size = self.tokenizer.vocab_size
         self.embedding = nn.Embedding(self.vocab_size, d_model)
         self.decoder_layer = nn.TransformerDecoderLayer(d_model=d_model,
@@ -103,8 +107,8 @@ class UtteranceDecoder(nn.Module):
                                    truncation=True,
                                    padding='max_length',
                                    return_tensors='pt')
-        input_ids = tokenized.input_ids
-        attention_mask = tokenized.attention_mask.to(torch.bool)
+        input_ids = tokenized.input_ids.to(self.device)
+        attention_mask = tokenized.attention_mask.to(torch.bool).to(self.device)
 
         return (input_ids, attention_mask)
 
@@ -137,7 +141,8 @@ class DialogTransformer(nn.Module):
                  n_enc_layers: int = 2,
                  n_dec_heads: int = 16,
                  n_dec_layers: int = 8,
-                 hf_checkpoint: str = 'distilbert-base-uncased'):
+                 hf_checkpoint: str = 'distilbert-base-uncased',
+                 device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         """Builds `DialogTransformer` for Dialog History Encoding and current Utterance Processing
         
         Args:
@@ -150,14 +155,17 @@ class DialogTransformer(nn.Module):
         """
         super(DialogTransformer, self).__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint)
+        self.device = device
         self.encoder = HistoryEncoder(self.tokenizer,
                                       d_model=d_model,
                                       n_heads=n_enc_heads,
-                                      n_layers=n_enc_layers)
+                                      n_layers=n_enc_layers,
+                                      device=self.device).to(device)
         self.decoder = UtteranceDecoder(self.tokenizer,
                                         d_model=d_model,
                                         n_heads=n_dec_heads,
-                                        n_layers=n_dec_layers)
+                                        n_layers=n_dec_layers,
+                                        device=self.device).to(device)
 
     def forward(self, history: Union[str, Iterable[str]],
                 utterance: Union[str, Iterable[str]]):

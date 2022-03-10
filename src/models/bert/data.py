@@ -116,11 +116,14 @@ def create_datasets(tokenizer: PreTrainedTokenizer):
 def create_next_turn_prediction_dataset(
         tokenizer: PreTrainedTokenizer,
         batch_size: int = 1,
+        upload: bool = False,
+        is_gpt: bool = False,
         is_t5: bool = False) -> Union[DatasetDict, List[datasets.Dataset]]:
     """Creates a dataset for next dialog turn prediciton
 
     Args:
         tokenizer - tokenizer to use
+
         batch_size - batch size of samples (default 1)
         is_t5 - if `True` returns `DataLoader` classes of splits
 
@@ -167,6 +170,9 @@ def create_next_turn_prediction_dataset(
         tmp = pd.DataFrame(relabel_samples(v))
         final[k] = datasets.Dataset.from_pandas(tmp)
 
+    if upload:
+        final.push_to_hub('benjaminbeilharz/daily_dialog_w_turn_templates')
+
     if is_t5:
         # return pytorch dataset if using data for t5
         t5 = []
@@ -174,6 +180,14 @@ def create_next_turn_prediction_dataset(
             t5.append(DataLoader(final[split], batch_size=batch_size))
         return t5
 
-    tokenized = final.map(tokenizer_fn, batched=True)
+    if is_gpt:
+        TOKENIZER.pad_token = TOKENIZER.eos_token
+        def tokenizer_fn(sample):
+            ins = TOKENIZER(sample['first'], return_tensors='pt', truncation=True, padding='max_length')
+            ins['labels'] = ins.input_ids
+            return ins
+
+
+    tokenized = final.map(tokenizer_fn, batched=False)
     tokenized.remove_columns_(['first', 'second'])
     return tokenized
