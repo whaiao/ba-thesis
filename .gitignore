@@ -141,4 +141,5 @@ cython_debug/
 .idea/
 .DS_Store
 src/models/social-chemistry-101/
-wandb/
+wandb/*
+*.swp
