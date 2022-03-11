@@ -81,8 +81,10 @@ class Trainer:
         self.valid_metrics = metrics.clone(prefix='validation/')
 
         config_dict = self.cfg.__dict__.update(self.model_cfg.__dict__)
+        pprint(config_dict)
 
         wandb.init(entity='benjaminbeilharz', project='ba-thesis', config=config_dict)
+        wandb.watch(self.model)
 
     @classmethod
     def load_from_config(cls,
@@ -194,7 +196,7 @@ class Trainer:
             return logits, loss
 
 
-    def inference_step(self, dialog_history: str, current_utterance: str, **generation_settings=None):
+    def inference_step(self, dialog_history: str, current_utterance: str, **generation_settings):
         self.model.eval()
         with torch.no_grad():
             if generation_settings is not None:
@@ -301,9 +303,9 @@ def main():
 
     #trainer = Trainer(cfg, mcfg, NeuralEmpathy, AdamW, dataset)
     checkpoint_path = 'checkpoints/models/'
-    trainer_cfg = checkpoint_path + 'train_cfg_05-03-07'
-    model_cfg = checkpoint_path + 'model_cfg_05-03-07'
-    checkpoint = checkpoint_path + 'checkpoint_05-03-07.pt'
+    trainer_cfg = checkpoint_path + 'train_cfg_10-03-23'
+    model_cfg = checkpoint_path + 'model_cfg_10-03-23'
+    checkpoint = checkpoint_path + 'checkpoint_10-03-23.pt'
     trainer = Trainer.load_from_config(trainer_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
     trainer.run()
 
