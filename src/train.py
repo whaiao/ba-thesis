@@ -27,6 +27,7 @@ from src.utils import init_from_checkpoint
 
 @dataclass
 class TrainingConfig:
+    """Training Configuration for `Manager` class"""
     epochs: int = 6
     learning_rate: float = 1e-4
     betas: Iterable[float] = None
@@ -38,21 +39,40 @@ class TrainingConfig:
     scheduler: Callable = get_linear_schedule_with_warmup
     save_to: str = 'checkpoints/models/'
 
+@dataclass
+class GenerationConfig:
+    """Generation Configuration for LM Generation"""
+    num_beams: int = 4
 
-class Trainer:
+
+
+class Manager:
+    """Manager class handles training, validation and testing"""
     def __init__(self, cfg: TrainingConfig, model_cfg: ModelConfig,
             model: nn.Module, optimizer: Optimizer,
-            data: DatasetDict):
+            data: DatasetDict, _pretrained: bool = False):
+        """Initializes Manager
+
+        Args:
+            cfg - training configuration file containing hyperparams for experiments
+            model_cfg - model configuration file containing hyperparams for model
+            model - neural network
+            optimizer - `torch` or `transformers` optimizer class
+            data - dataset pulled from `HuggingFace`
+            _pretrained - sets models and optimizers based on if initialized from checkpoint
+        """
         self.accelerator = Accelerator()
         self.device = self.accelerator.device
         self.cfg = cfg
         self.model_cfg = model_cfg
-        # TODO: init model in load_from_checkpoint
-        self.model = model
-        self.optimizer = optimizer
-        # self.model = model(model_cfg).to(self.device)
-        # self.optimizer = optimizer(self.model.parameters(),
-        #         self.cfg.learning_rate)
+        if _pretrained:
+            self.model = model
+            self.optimizer = optimizer
+        else:
+            self.model = model(model_cfg).to(self.device)
+            self.optimizer = optimizer(self.model.parameters(),
+                     self.cfg.learning_rate)
+
         self.model.cuda()
         self.data = data
 
@@ -93,9 +113,17 @@ class Trainer:
                          checkpoint_path: str = None,
                          model: nn.Module = None,
                          optimizer: Optimizer = None,
-                         data: DatasetDict = None,
-                         **kwargs):
+                         data: DatasetDict = None):
+        """Creates Manager class based on existing checkpoints and configurations
 
+        Args:
+            cfg_path - path to pickled configuration file
+            model_cfg_path - path to pickled model configuration file
+            checkpoint_path - path to model and optimizer checkpoint path
+            model - model to load
+            optimizer - optimizer to load
+            data - dataset from `HuggingFace`
+        """
         with open(cfg_path, 'rb') as p:
             cfg = pickle.load(p)
 
@@ -109,11 +137,15 @@ class Trainer:
         model, optimizer = init_from_checkpoint(checkpoint_path, model, optimizer)
 
         print('Successfully loaded config file')
-        return cls(cfg=cfg, model_cfg=mcfg, model=model, optimizer=optimizer, data=data)
+        return cls(cfg=cfg, model_cfg=mcfg, model=model, optimizer=optimizer, data=data, _pretrained=True)
 
 
     def _save_config(self, save_to: str):
-        # use vars to convert dataclass to dict
+        """Saves current config with a timestamp
+        
+        Args:
+            save_to - path to save config to
+        """
         date = datetime.now()
         date = date.strftime('%d-%m-%H')
         save_to += f'train_cfg_{date}'
@@ -123,6 +155,11 @@ class Trainer:
             pickle.dump(self.model_cfg, p)
 
     def _save_checkpoint(self, save_to: str):
+        """Saves current checkpoint /w timestamp
+
+        Args:
+            save_to - path to save checkpoint to
+        """
         date = datetime.now()
         date = date.strftime('%d-%m-%H')
         save_to += f'checkpoint_{date}.pt'
@@ -137,6 +174,16 @@ class Trainer:
             logits: Tensor,
             target: str,
             train: bool = True) -> Tuple[Tensor, Mapping[str, float]]:
+        """Makes a prediction and calculates metrics
+
+        Args:
+            logits - current prediction from `lm_head`
+            target - gold response
+            train - true by default, whether to output validation or train metrics
+
+        Returns:
+            generated output tensor and a metric dictionary
+        """
         preds = torch.argmax(logits, dim=-1)
         generated = self.model.lm_tokenizer.decode(preds[0], skip_special_tokens=True)
         postprocessed = sub('\s+', ' ', generated)
@@ -151,6 +198,14 @@ class Trainer:
         return (postprocessed, metrics)
 
     def _sample(self, sample: Mapping[str, List[str]]) -> Tuple[str, Iterable]:
+        """Creates a sample from the dataset
+
+        Args:
+            sample - an entry from dataset
+
+        Returns:
+            context and complete dialog
+        """
         sample = sample['conv']
         ctx = sample.pop(0)
         iterable = pairwise(sample)
@@ -158,6 +213,15 @@ class Trainer:
 
     def _prepare_dialog_history(self, ctx: str,
                                 dialog: Iterable) -> List[List[str]]:
+        """Prepares the dialog in pairs for the language model task
+        
+        Args:
+            ctx - context of dialog
+            dialog - iterable of utterances
+
+        Returns:
+            list of history, current and next turn
+        """
         turns = []
         hist = ctx.replace('_comma_', ',')
         for d in dialog:
@@ -171,7 +235,15 @@ class Trainer:
 
         return turns
 
-    def training_step(self, sample: Iterable[str]):
+    def training_step(self, sample: Iterable[str]) -> Tuple[Tensor]:
+        """Training step
+
+        Args:
+            sample - dialog history, current utterance and gold response
+
+        Returns:
+            tuple of logits and loss
+        """
         self.model.train()
         history, current, next = sample
         self.optimizer.zero_grad()
@@ -187,6 +259,14 @@ class Trainer:
         return logits, loss
 
     def validation_step(self, sample: Iterable[str]):
+        """Validation step
+
+        Args:
+            sample - dialog history, current utterance and gold response
+
+        Returns:
+            tuple of logits and loss
+        """
         self.model.eval()
         with torch.no_grad():
             history, current, next = sample
@@ -196,7 +276,17 @@ class Trainer:
             return logits, loss
 
 
-    def inference_step(self, dialog_history: str, current_utterance: str, **generation_settings):
+    def inference_step(self, dialog_history: str, current_utterance: str, **generation_settings) -> str:
+        """Inference
+
+        Args:
+            dialog_history - the dialog history as a concatenated string
+            current_utterance - the current utterance
+            **generation_settings - settings for generation
+
+        Returns:
+            generated response
+        """
         self.model.eval()
         with torch.no_grad():
             if generation_settings is not None:
@@ -207,35 +297,16 @@ class Trainer:
 
 
     def run(self):
+        """Runs a complete cycle of epochs, training and validation"""
         for epoch in trange(1, self.cfg.epochs + 1):
-            # unfreeze more modules every x epochs
-            # if epoch - 1 % self.cfg.unfreeze_every == 0 and len(
-            #         self.unfreeze_model_modules) != 0:
-            #     module_name = self.unfreeze_model_modules.pop(0)
-            #     print(f'Unfreezing {module_name} at Epoch: {epoch}')
-            #     self.model._unfreeze_params(module_name)
-
-                
-
             best_checkpoint = None
             train_running_loss = []
-            #quarter_epoch = len(self.data['train']) // 4
-            #half_epoch = len(self.data['train']) // 2
             for i, sample in enumerate(tqdm(self.data['train']), start=1):
-                #if i == quarter_epoch:
-                #    print('Unfreezed Language Model head')
-                #    self.model._unfreeze_params(self.freeze_model_modules[-1])
-
-                #if i == quarter_epoch and epoch == 2:
-                #    print('Unfreezing Dialog History Encoder')
-                #    self.model._unfreeze_params(self.freeze_model_modules[0])
-
                 ctx, dialog = self._sample(sample)
                 dialog = self._prepare_dialog_history(ctx, dialog)
                 for turn in dialog:
                     logits, loss = self.training_step(turn)
                     perplexity = torch.exp(loss)
-                    #log_key = 'train/loss' if i <= quarter_epoch else 'train/lm/loss'
                     log_key = 'train/loss'
                     wandb.log({log_key: loss.item(),
                         'train/perplexity': perplexity})
@@ -301,12 +372,12 @@ def main():
     mcfg = ModelConfig()
     dataset = load_dataset('benjaminbeilharz/empathetic_dialogues_for_lm')
 
-    #trainer = Trainer(cfg, mcfg, NeuralEmpathy, AdamW, dataset)
-    checkpoint_path = 'checkpoints/models/'
-    trainer_cfg = checkpoint_path + 'train_cfg_10-03-23'
-    model_cfg = checkpoint_path + 'model_cfg_10-03-23'
-    checkpoint = checkpoint_path + 'checkpoint_10-03-23.pt'
-    trainer = Trainer.load_from_config(trainer_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
+    trainer = Manager(cfg, mcfg, NeuralEmpathy, AdamW, dataset)
+    # checkpoint_path = 'checkpoints/models/'
+    # trainer_cfg = checkpoint_path + 'train_cfg_10-03-23'
+    # model_cfg = checkpoint_path + 'model_cfg_10-03-23'
+    # checkpoint = checkpoint_path + 'checkpoint_10-03-23.pt'
+    # trainer = Manager.load_from_config(trainer_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
     trainer.run()
 
 

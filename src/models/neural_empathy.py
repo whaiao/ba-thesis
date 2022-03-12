@@ -39,6 +39,7 @@ class NeuralEmpathy(nn.Module):
     def __init__(self, cfg: ModelConfig):
         super(NeuralEmpathy, self).__init__()
         self.cfg = cfg
+
         #self.dialog_transformer = DialogTransformer(
         #    d_model=self.cfg.d_model,
         #    n_enc_heads=self.cfg.n_enc_heads,
@@ -94,7 +95,7 @@ class NeuralEmpathy(nn.Module):
         labels[labels == self.lm_tokenizer.pad_token_id] = -100
         return labels.to(self.cfg.device)
 
-    def inference(self, history: str, turn: str, **generation_settings=None):
+    def inference(self, history: str, turn: str, **generation_settings):
         """Inference step to generate a response
 
         Args:
@@ -133,6 +134,16 @@ class NeuralEmpathy(nn.Module):
 
 
     def forward(self, history: str, turn: str, next: str) -> Seq2SeqLMOutput:
+        """Forward pass
+        
+        Args:
+            history - dialog history
+            turn - current utterance
+            next - gold label for response to current utterance
+
+        Returns:
+            logits, loss in `Seq2SeqLMOutput`
+        """
         if hasattr(self, 'dialog_tokenizer'):
             tokenized = self.dialog_tokenizer(history, turn, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
             encoded_history = self.dialog_transformer(**tokenized).last_hidden_state

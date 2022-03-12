@@ -95,6 +95,8 @@ def init_from_checkpoint(
 
     model.load_state_dict(state_dict=checkpoint['model'])
     optim.load_state_dict(state_dict=checkpoint['optim'])
+    del checkpoint
+    torch.cuda.empty_cache()
 
     return model, optim
 

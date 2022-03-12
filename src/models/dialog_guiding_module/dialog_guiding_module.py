@@ -136,6 +136,13 @@ class DialogGuidingModule(nn.Module):
         Returns:
             knowledge mappings
         """
+        ### EXPERIMENTAL: CAP MAX TOKENS TO 512
+        ntokens = len(query.split())
+        if ntokens > 512:
+            query = ' '.join(query.split()[:512])
+
+        ###
+
         overlaps = retrieve_overlap(query)
         if overlaps is None:
             return None

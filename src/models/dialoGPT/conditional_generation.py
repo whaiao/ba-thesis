@@ -14,9 +14,10 @@ wandb.init(project='ba-thesis', entity='benjaminbeilharz')
 
 # make sure data is in the right format
 
-EPOCHS = 10.
-tokenizer = AutoTokenizer.from_pretrained(f'microsoft/DialoGPT-medium')
-model = GPT2LMHeadModel.from_pretrained(f'microsoft/DialoGPT-medium')
+EPOCHS = 5.
+tokenizer = AutoTokenizer.from_pretrained(f'microsoft/DialoGPT-small')
+model = GPT2LMHeadModel.from_pretrained(f'microsoft/DialoGPT-small')
+model.config.use_cache = False
 data = create_next_turn_prediction_dataset(tokenizer=tokenizer, is_gpt=True)
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 tokenizer.pad_token = tokenizer.eos_token
@@ -30,14 +31,12 @@ def compute_metrics(pred):
     return metric.compute(predictions=predictions, references=labels)
 
 
-args = TrainingArguments('checkpoints/dialoGPT-medium-conditioned-next-turn',
-                         num_train_epochs=3.0,
+args = TrainingArguments('checkpoints/dialoGPT-small-conditioned-next-turn',
+                         num_train_epochs=EPOCHS,
                          save_strategy='epoch',
-                         evaluation_strategy='epoch',
-                         load_best_model_at_end=True,
-                         per_device_train_batch_size=4,
-                         per_device_eval_batch_size=1,
-                         gradient_accumulation_steps=2,
+                         evaluation_strategy='no',
+                         per_device_train_batch_size=8,
+                         gradient_accumulation_steps=3,
                          gradient_checkpointing=True,
                          fp16=True,
                          report_to='wandb')
