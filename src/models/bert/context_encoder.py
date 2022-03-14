@@ -4,7 +4,7 @@ from datasets import load_dataset, load_metric
 from more_itertools import pairwise
 
 from tqdm import tqdm
-from transformers import BertGenerationEncoder, BertGenerationDecoder, BertTokenizer, EncoderDecoderModel, Trainer, TrainingArguments, DataCollatorWithPadding, AdamW, get_linear_schedule_with_warmup
+from transformers import BertTokenizer, EncoderDecoderModel, Trainer, TrainingArguments, AdamW, get_linear_schedule_with_warmup
 import torch
 import wandb
 
@@ -30,28 +30,34 @@ def _prepare_dialog_history(ctx: str,
         hist += f' {current}'
     return turns
 
+
+data = load_dataset('benjaminbeilharz/empathetic_dialogues_for_lm')
 device = torch.device('cuda')
 epochs = 5
+total_train_steps = int(epochs) * len(data['train'])
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-data = load_dataset('benjaminbeilharz/empathetic_dialogues_for_lm')
+tokenizer.bos_token = tokenizer.cls_token
+tokenizer.eos_token = tokenizer.sep_token
 
-encoder = BertGenerationEncoder.from_pretrained('bert-base-uncased')
-decoder = BertGenerationDecoder.from_pretrained('bert-base-uncased',
-        add_cross_attention=True,
-        is_decoder=True)
-
-
-total_train_steps = int(epochs) * len(data['train'])
-bert2bert = EncoderDecoderModel(encoder=encoder, decoder=decoder).to(device)
-optim = AdamW(bert2bert.parameters())
-scheduler = get_linear_schedule_with_warmup(optim, num_warmup_steps=0,
-        num_training_steps=total_train_steps)
-
-bert2bert.config.decoder_start_token_id = tokenizer.cls_token_id
+bert2bert = EncoderDecoderModel.from_encoder_decoder_pretrained('bert-base-uncased', 'bert-base-uncased').to(device)
+bert2bert.config.decoder.is_decoder = True
+bert2bert.config.decoder.add_cross_attention = True
+bert2bert.config.decoder_start_token_id = tokenizer.bos_token_id
+bert2bert.config.eos_token_id = tokenizer.eos_token_id
 bert2bert.config.pad_token_id = tokenizer.pad_token_id
-bert2bert.config.vocab_size = bert2bert.config.decoder.vocab_size
 
+bert2bert.config.vocab_size = bert2bert.config.decoder.vocab_size
+bert2bert.config.max_length = 142
+bert2bert.config.min_length = 56
+bert2bert.config.no_repeat_ngram_size = 3
+bert2bert.config.early_stopping = True
+bert2bert.config.length_penalty = 2.0
+bert2bert.config.num_beams = 4
+
+optim = AdamW(bert2bert.parameters())
+scheduler = get_linear_schedule_with_warmup(optim, num_warmup_steps=500,
+        num_training_steps=total_train_steps)
 
 def train():
     wandb.init(entity='benjaminbeilharz', project='ba-thesis')
@@ -66,13 +72,25 @@ def train():
 
             for turn in dialog:
                 history, utterance, _ = turn
-                input_ids = tokenizer(history, add_special_tokens=False, truncation=True, return_tensors='pt').input_ids.to(device)
-                labels = tokenizer(utterance, truncation=True, return_tensors='pt').input_ids.to(device)
+                enc = tokenizer(history, truncation=True, return_tensors='pt').to(device)
+                dec = tokenizer(utterance, truncation=True, return_tensors='pt').to(device)
 
                 # forward
-                loss = bert2bert(input_ids=input_ids, labels=labels).loss
+                optim.zero_grad()
+                bert2bert.zero_grad()
+                out = bert2bert(input_ids=enc.input_ids, attention_mask=enc.attention_mask, decoder_input_ids=dec.input_ids, decoder_attention_mask=dec.attention_mask, labels=dec.input_ids)
+                loss = out.loss
+                logits = out.logits
                 loss /= len(dialog)
+                # backprop
                 loss.backward()
+                optim.step()
+                scheduler.step()
+                if i % 50 == 0:
+                    pred = torch.argmax(logits, dim=-1)[0]
+                    print('Training generation')
+                    print(f'Generation at epoch: {epoch}\nStep:\t{i}')
+                    print(tokenizer.decode(pred))
 
             wandb.log({
                 'train/loss': loss.item(),
@@ -80,13 +98,10 @@ def train():
                 'train/batch_progress': i/len(data['train'])
                 })
 
-            # backprop
-            optim.step()
-            scheduler.step()
-            optim.zero_grad()
         
         print('saving bert2bert after epoch {}'.format(epoch))
         bert2bert.save_pretrained(f'checkpoints/bert2bert-empathetic-dialogues/epoch-{epoch}')
+        tokenizer.save_pretrained(f'checkpoints/bert2bert-empathetic-dialogues/epoch-{epoch}')
 
         # validation
         bert2bert.eval()
@@ -97,25 +112,25 @@ def train():
 
                 for turn in dialog:
                     history, utterance, _ = turn
-                    input_ids = tokenizer(history, add_special_tokens=False, truncation=True, return_tensors='pt').input_ids.to(device)
-                    labels = tokenizer(utterance, truncation=True, return_tensors='pt').input_ids.to(device)
+                    enc = tokenizer(history, truncation=True, return_tensors='pt').to(device)
+                    dec = tokenizer(utterance, truncation=True, return_tensors='pt').to(device)
 
-                    # forward
-                    loss = bert2bert(input_ids=input_ids, labels=labels).loss
+                # forward
+                    out = bert2bert(input_ids=enc.input_ids, attention_mask=enc.attention_mask, decoder_input_ids=dec.input_ids, decoder_attention_mask=dec.attention_mask, labels=dec.input_ids)
+                    loss = out.loss
+                    logits = out.logits
+                    if i % 50 == 0:
+                        pred = torch.argmax(logits, dim=-1)[0]
+                        print('Validation generation')
+                        print(f'Generation at epoch: {epoch}\nStep:\t{i}')
+                        print(tokenizer.decode(pred))
                     loss /= len(dialog)
 
                 wandb.log({
                     'validation/loss': loss.item(),
-                    'validation/perplexity': torch.exp(loss)
+                    'validation/perplexity': torch.exp(loss),
+                    'validation/batch_progress': i/len(data['validation'])
                     })
-
-            generation = bert2bert.generate(input_ids)
-            decoded = tokenizer.decode(generation[0], skip_special_token=True)
-
-        print(f'Input context: {history}')
-        print('Input token_ids: ', input_ids)
-        print('Generated token ids: ', generation)
-        print(f'Generation after epoch: {epoch}\n{decoded}')
 
 
 train()

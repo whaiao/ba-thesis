@@ -35,9 +35,9 @@ class TrainingConfig:
     report_every: int = 10
     unfreezing_modules: List[str] = field(default_factory=lambda: ['dialog_guiding_module'])
     unfreeze_every: int = 1
-    warmup_steps: int = 100
+    warmup_steps: int = 500
     scheduler: Callable = get_linear_schedule_with_warmup
-    save_to: str = 'checkpoints/models/'
+    save_to: str = 'checkpoints/models/neural_empath_with_enc_dec'
 
 @dataclass
 class GenerationConfig:
@@ -184,6 +184,7 @@ class Manager:
         Returns:
             generated output tensor and a metric dictionary
         """
+        target = target['next']
         preds = torch.argmax(logits, dim=-1)
         generated = self.model.lm_tokenizer.decode(preds[0], skip_special_tokens=True)
         postprocessed = sub('\s+', ' ', generated)
@@ -245,16 +246,18 @@ class Manager:
             tuple of logits and loss
         """
         self.model.train()
-        history, current, next = sample
+        history = sample['history']
+        current = sample['current']
+        nxt = sample['next']
+        self.model.zero_grad()
         self.optimizer.zero_grad()
-        out = self.model(history, current, next)
+        out = self.model(history, current, nxt)
         loss = out.loss
         logits = out.logits
+        loss.backward()
 
-        if not self.cfg.gradient_accumulation:
-            self.optimizer.step()
-            self.scheduler.step()
-            self.optimizer.zero_grad()
+        self.optimizer.step()
+        self.scheduler.step()
 
         return logits, loss
 
@@ -269,8 +272,10 @@ class Manager:
         """
         self.model.eval()
         with torch.no_grad():
-            history, current, next = sample
-            out = self.model(history, current, next)
+            history = sample['history']
+            current = sample['current']
+            nxt = sample['next']
+            out = self.model(history, current, nxt)
             loss = out.loss
             logits = out.logits
             return logits, loss
@@ -302,32 +307,20 @@ class Manager:
             best_checkpoint = None
             train_running_loss = []
             for i, sample in enumerate(tqdm(self.data['train']), start=1):
-                ctx, dialog = self._sample(sample)
-                dialog = self._prepare_dialog_history(ctx, dialog)
-                for turn in dialog:
-                    logits, loss = self.training_step(turn)
-                    perplexity = torch.exp(loss)
-                    log_key = 'train/loss'
-                    wandb.log({log_key: loss.item(),
-                        'train/perplexity': perplexity})
-                    # normalize loss across number of dialog turns
-                    train_running_loss.append(loss.item())
-                    loss /= len(dialog)
-                    loss.backward()
-                if self.cfg.gradient_accumulation:
-                    self.optimizer.step()
-                    self.scheduler.step()
-                    self.optimizer.zero_grad()
-
+                logits, loss = self.training_step(sample)
+                perplexity = torch.exp(loss)
+                log_key = 'train/loss'
+                wandb.log({log_key: loss.item(),
+                    'train/perplexity': perplexity,
+                    'train/epoch_progress': i/len(self.data['train'])})
+                train_running_loss.append(loss.item())
 
                 current_generation, metrics = self._predict_and_calculate_metrics(
-                    logits, turn[-1])
+                    logits, sample)
 
                 print(
                         f'Epoch: {epoch}\tTraining Loss: {np.mean(train_running_loss)}\tPerplexity: {perplexity}\nCurrent Generation: {current_generation}'
                 )
-                for k, v in metrics.items():
-                    print(f'{k}:\t{v}')
 
             print(
                 f'Finished Epoch: {epoch}\t Average Training Loss: {np.mean(train_running_loss)}'
@@ -338,22 +331,17 @@ class Manager:
 
             eval_running_loss = []
             for i, sample in enumerate(tqdm(self.data['validation']), start=1):
-                ctx, dialog = self._sample(sample)
-                dialog = self._prepare_dialog_history(ctx, dialog)
-                for turn in dialog:
-                    logits, validation_loss = self.validation_step(turn)
-                    perplexity = torch.exp(validation_loss)
-                    wandb.log({'validation/loss': validation_loss.item(),
-                        'validation/perplexity': perplexity})
-                    eval_running_loss.append(validation_loss.item())
+                logits, validation_loss = self.validation_step(sample)
+                perplexity = torch.exp(validation_loss)
+                wandb.log({'validation/loss': validation_loss.item(),
+                    'validation/perplexity': perplexity,
+                    'validation/epoch_progess': i/len(self.data['validation'])})
+                eval_running_loss.append(validation_loss.item())
 
-                current_val_generation, val_metrics = self._predict_and_calculate_metrics(logits, turn[-1], False)
-                print(
-                        f'Epoch: {epoch}\tValidation Loss: {np.mean(eval_running_loss)}\tValidation Perplexity: {torch.exp(validation_loss)}\nCurrent Generation: {current_val_generation}'
-                        )
-                for k, v in val_metrics.items():
-                    print(f'{k}:\t{v}')
-                
+            current_val_generation, val_metrics = self._predict_and_calculate_metrics(logits, sample, False)
+            print(
+                    f'Epoch: {epoch}\tValidation Loss: {np.mean(eval_running_loss)}\tValidation Perplexity: {torch.exp(validation_loss)}\nCurrent Generation: {current_val_generation}'
+                    )
 
             avg_eval_loss = np.mean(eval_running_loss)
             if best_checkpoint is None or avg_eval_loss < best_checkpoint:
@@ -370,7 +358,7 @@ class Manager:
 def main():
     cfg = TrainingConfig()
     mcfg = ModelConfig()
-    dataset = load_dataset('benjaminbeilharz/empathetic_dialogues_for_lm')
+    dataset = load_dataset('benjaminbeilharz/ed-for-lm')
 
     trainer = Manager(cfg, mcfg, NeuralEmpathy, AdamW, dataset)
     # checkpoint_path = 'checkpoints/models/'

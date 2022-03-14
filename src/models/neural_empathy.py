@@ -4,7 +4,7 @@ from pprint import pprint
 import torch
 from torch import Tensor
 from torch import nn
-from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration, AutoModelForCausalLM, EncoderDecoderModel
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
 from src.models.dialog_guiding_module.dialog_guiding_module import DialogGuidingModule
@@ -40,6 +40,7 @@ class NeuralEmpathy(nn.Module):
         super(NeuralEmpathy, self).__init__()
         self.cfg = cfg
 
+        # learn transformer from scratch for context encoding
         #self.dialog_transformer = DialogTransformer(
         #    d_model=self.cfg.d_model,
         #    n_enc_heads=self.cfg.n_enc_heads,
@@ -48,7 +49,27 @@ class NeuralEmpathy(nn.Module):
         #    n_dec_layers=self.cfg.n_dec_layers).to(self.cfg.device)
 
         self.dialog_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-        self.dialog_transformer = AutoModel.from_pretrained('bert-base-uncased').to(self.cfg.device)
+        # self.dialog_transformer = AutoModel.from_pretrained('bert-base-uncased').to(self.cfg.device)
+
+        # experimental enc-dec
+        self.dialog_transformer = EncoderDecoderModel.from_pretrained('./checkpoint-11000').to(self.cfg.device)
+        self.dialog_transformer.decoder.config.output_hidden_states = True
+        self.dialog_tokenizer.bos_token = self.dialog_tokenizer.cls_token
+        self.dialog_tokenizer.eos_token = self.dialog_tokenizer.sep_token
+        encoder_max_length=512
+        decoder_max_length=128
+        self.dialog_transformer.config.decoder_start_token_id = self.dialog_tokenizer.bos_token_id
+        self.dialog_transformer.config.eos_token_id = self.dialog_tokenizer.eos_token_id
+        self.dialog_transformer.config.pad_token_id = self.dialog_tokenizer.pad_token_id
+        self.dialog_transformer.config.vocab_size = self.dialog_transformer.config.decoder.vocab_size
+        self.dialog_transformer.config.max_length = 142
+        self.dialog_transformer.config.min_length = 56
+        self.dialog_transformer.config.no_repeat_ngram_size = 2
+        self.dialog_transformer.config.early_stopping = True
+        self.dialog_transformer.config.length_penalty = 2.0
+        self.dialog_transformer.config.num_beams = 4
+
+
 
         self.dialog_guiding_module = DialogGuidingModule(
             d_model=self.cfg.d_model,
@@ -133,7 +154,7 @@ class NeuralEmpathy(nn.Module):
         return generated
 
 
-    def forward(self, history: str, turn: str, next: str) -> Seq2SeqLMOutput:
+    def forward(self, history: str, turn: str, nxt: str) -> Seq2SeqLMOutput:
         """Forward pass
         
         Args:
@@ -144,14 +165,24 @@ class NeuralEmpathy(nn.Module):
         Returns:
             logits, loss in `Seq2SeqLMOutput`
         """
-        if hasattr(self, 'dialog_tokenizer'):
+        if hasattr(self, 'dialog_tokenizer') and not isinstance(self.dialog_transformer, EncoderDecoderModel):
             tokenized = self.dialog_tokenizer(history, turn, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
             encoded_history = self.dialog_transformer(**tokenized).last_hidden_state
+        # enc-dec model
+        elif isinstance(self.dialog_transformer, EncoderDecoderModel):
+            enc_in = self.dialog_tokenizer(history, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
+            dec_in = self.dialog_tokenizer(turn, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
+            encoded_history = self.dialog_transformer(input_ids=enc_in.input_ids,
+                    attention_mask=enc_in.attention_mask,
+                    decoder_input_ids=dec_in.input_ids,
+                    decoder_attention_mask=dec_in.attention_mask,
+                    labels=dec_in.input_ids
+                    ).decoder_hidden_states[0]
         else:
             encoded_history = self.dialog_transformer(history, turn)
         knowledge_encoding = self.dialog_guiding_module(encoded_history, turn)
         if 't5' in self.cfg.lm_checkpoint:
-            next_utterance = self._prepare_lm_input(next)
+            next_utterance = self._prepare_lm_input(nxt)
         else:
             next_utterance = knowledge_encoding
          

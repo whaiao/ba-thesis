@@ -138,8 +138,8 @@ class DialogGuidingModule(nn.Module):
         """
         ### EXPERIMENTAL: CAP MAX TOKENS TO 512
         ntokens = len(query.split())
-        if ntokens > 512:
-            query = ' '.join(query.split()[:512])
+        if ntokens > 450:
+            query = ' '.join(query.split()[:450])
 
         ###
 

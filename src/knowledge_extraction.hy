@@ -72,6 +72,7 @@
 
   (return res))
 
+;; this is used in dgm
 (defn ^(. List [str]) retrieve-overlap 
   [^str x
    ^Callable [srl-model srl]
