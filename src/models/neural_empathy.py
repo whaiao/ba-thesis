@@ -4,7 +4,7 @@ from pprint import pprint
 import torch
 from torch import Tensor
 from torch import nn
-from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration, AutoModelForCausalLM, EncoderDecoderModel
+from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration, EncoderDecoderModel, GPT2LMHeadModel
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
 from src.models.dialog_guiding_module.dialog_guiding_module import DialogGuidingModule
@@ -31,6 +31,7 @@ class ModelConfig:
 
     # language model head
     lm_checkpoint: str = 'benjaminbeilharz/t5-conditioned-next-turn'
+    # lm_checkpoint: str = 'benjaminbeilharz/dialoGPT-small-conditioned2nextturn'
     pt_checkpoint: str = 'checkpoints/t5_generator.pt'
     resume_training: bool = True
 
@@ -70,7 +71,6 @@ class NeuralEmpathy(nn.Module):
         self.dialog_transformer.config.num_beams = 4
 
 
-
         self.dialog_guiding_module = DialogGuidingModule(
             d_model=self.cfg.d_model,
             output_dimensions=self.cfg.output_dimensions,
@@ -78,11 +78,16 @@ class NeuralEmpathy(nn.Module):
             hf_checkpoint=self.cfg.hf_checkpoint).to(self.cfg.device)
 
 
+        # create language model head
         if 't5' in self.cfg.lm_checkpoint:
-            self.lm_head = T5ForConditionalGeneration.from_pretrained(self.cfg.lm_checkpoint).to(self.cfg.device)
             self.lm_tokenizer = AutoTokenizer.from_pretrained('t5-base')
-        elif 'DialoGPT' in self.cfg.lm_checkpoint:
-            self.lm_head = AutoModelForCausalLM.from_pretrained('microsoft/DialoGPT-medium').to(self.cfg.device)
+            self.lm_head = T5ForConditionalGeneration.from_pretrained(self.cfg.lm_checkpoint).to(self.cfg.device)
+        elif 'dialoGPT' in self.cfg.lm_checkpoint:
+            special_tokens_dict = {'bos_token': '<BOS>', 'eos_token': '<EOS>', 'pad_token': '<PAD>'}
+            self.lm_tokenizer = AutoTokenizer.from_pretrained('microsoft/DialoGPT-small', model_max_length=512)
+            self.lm_tokenizer.add_special_tokens(special_tokens_dict)
+            self.lm_head = GPT2LMHeadModel.from_pretrained('benjaminbeilharz/dialoGPT-small-conditioned2nextturn').to(self.cfg.device)
+            self.lm_head.resize_token_embeddings(len(self.lm_tokenizer))
         if self.cfg.resume_training:
             pass
 
@@ -108,6 +113,7 @@ class NeuralEmpathy(nn.Module):
                 p.requires_grad = True
 
     def _prepare_lm_input(self, next_turn: str) -> Tensor:
+        next_turn = '<pad> ' + next_turn
         labels = self.lm_tokenizer(next_turn,
                                    padding='longest',
                                    max_length=128,
@@ -127,30 +133,36 @@ class NeuralEmpathy(nn.Module):
         Returns:
             a natural language response
         """
-        if hasattr(self, 'dialog_tokenizer'):
-            tokenized = self.dialog_tokenizer(history, 
-                    turn, 
-                    truncation=True, 
-                    padding='max_length', 
-                    return_tensors='pt').to(self.cfg.device)
+        if hasattr(self, 'dialog_tokenizer') and not isinstance(self.dialog_transformer, EncoderDecoderModel):
+            tokenized = self.dialog_tokenizer(history, turn, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
             encoded_history = self.dialog_transformer(**tokenized).last_hidden_state
+        # enc-dec model
+        elif isinstance(self.dialog_transformer, EncoderDecoderModel):
+            enc_in = self.dialog_tokenizer(history, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
+            dec_in = self.dialog_tokenizer(turn, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device)
+            encoded_history = self.dialog_transformer(input_ids=enc_in.input_ids,
+                    attention_mask=enc_in.attention_mask,
+                    decoder_input_ids=dec_in.input_ids,
+                    decoder_attention_mask=dec_in.attention_mask,
+                    labels=dec_in.input_ids
+                    ).decoder_hidden_states[0]
         else:
             encoded_history = self.dialog_transformer(history, turn)
+
+        # knowledge attention w/ atomic
         knowledge_encoding = self.dialog_guiding_module(encoded_history, turn)
-        if 't5' in self.cfg.lm_checkpoint:
-            next_utterance = self._prepare_lm_input(next)
-        else:
-            next_utterance = knowledge_encoding
-         
         knowledge_encoding2tokens = torch.argmax(knowledge_encoding, dim=-1)
 
         # if settings are not supplied, use default arguments to generate
         if generation_settings is None:
-            outputs = model.generate(input_ids=knowledge_encoding2tokens)
+            outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens)
         else:
-            outputs = model.generate(input_ids=knowledge_encoding2tokens, **generation_settings)
+            outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens, **generation_settings)
+        # now we have 5 output sequences
+        print("Output:\n" + 100 * '-')
+        for i, output in enumerate(outputs):
+            print("{}: {}".format(i, self.lm_tokenizer.decode(output, skip_special_tokens=True)))
 
-        generated = self.lm_tokenizer.decode(outputs[0], skip_special_tokens=True)
         return generated
 
 
@@ -180,12 +192,21 @@ class NeuralEmpathy(nn.Module):
                     ).decoder_hidden_states[0]
         else:
             encoded_history = self.dialog_transformer(history, turn)
-        knowledge_encoding = self.dialog_guiding_module(encoded_history, turn)
+
+        # knowledge attention w/ atomic
+        knowledge_encoding = self.dialog_guiding_module(encoded_history, turn, 
+                # experimental
+                mask=~dec_in.attention_mask.to(torch.bool))
+
+        # language model head - prepare gold label
         if 't5' in self.cfg.lm_checkpoint:
             next_utterance = self._prepare_lm_input(nxt)
+        elif 'dialoGPT' in self.cfg.lm_checkpoint:
+            labels = history + turn
+            next_utterance = self.lm_tokenizer(labels, truncation=True, padding='max_length', return_tensors='pt').to(self.cfg.device).input_ids
         else:
             next_utterance = knowledge_encoding
-         
+
         out = self.lm_head(inputs_embeds=knowledge_encoding,
                            labels=next_utterance)
         return out

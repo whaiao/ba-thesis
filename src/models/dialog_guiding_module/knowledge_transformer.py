@@ -8,7 +8,7 @@ import torch
 from torch import Tensor
 from torch import nn
 from torch.nn import functional as F
-from transformers import AutoModel, T5ForConditionalGeneration, AutoTokenizer
+from transformers import AutoModel, T5EncoderModel, T5ForConditionalGeneration, AutoTokenizer
 
 from src.utils import freeze_weights
 
@@ -22,7 +22,9 @@ class KnowledgeAttention(nn.Module):
                  n_moral_heads: int,
                  dropout: float = .1,
                  hf_checkpoint: str = 'distilbert-base-uncased',
+                 # set false with earlier pretraining model
                  use_pretrained: bool = False,
+                 #use_pretrained: bool = True,
                  share_weights: bool = False,
                  device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         """Knowledge Attention Module incooperating external knowledge
@@ -52,14 +54,16 @@ class KnowledgeAttention(nn.Module):
         self.tokenizer = AutoTokenizer.from_pretrained(hf_checkpoint)
 
         if use_pretrained:
-            self.encoder = AutoModel.from_pretrained(hf_checkpoint)
+            self.encoder = AutoModel.from_pretrained(hf_checkpoint).to(self.device)
         else:
+            self.tokenizer = AutoTokenizer.from_pretrained('t5-base')
             self.embedding = nn.Embedding(self.tokenizer.vocab_size, embed_dim)
             self.transformer_encoder_layer = nn.TransformerEncoderLayer(
-                embed_dim, nhead=8, batch_first=True)
+                self.d_model, nhead=8, batch_first=True)
             self.encoder = nn.TransformerEncoder(
                 self.transformer_encoder_layer, num_layers=2)
 
+        # ablations: use avg pooling?
         # use the same weights to encode matrices
         if self.share_weights:
             self.linear = nn.Linear(self.d_model, self.d_model * 3)
@@ -100,8 +104,7 @@ class KnowledgeAttention(nn.Module):
         attn_logits = torch.matmul(q, k.transpose(-2, -1))
         attn_logits = attn_logits / sqrt(d_k)
         if mask is not None:
-            # change mask values to make them consistent with other masks
-            attn_logits = attn_logits.masked_fill(mask == 0, -9e15)
+            attn_logits = attn_logits.masked_fill(mask, 0.)
         attention = F.softmax(attn_logits, dim=-1)
         if dropout > 0.0:
             attention = F.dropout(attention, p=dropout)
@@ -110,7 +113,7 @@ class KnowledgeAttention(nn.Module):
 
     def _process_attention_heads(
             self, x: torch.FloatTensor, qkv: torch.FloatTensor, n_heads: int,
-            mask: torch.BoolTensor) -> Tuple[torch.FloatTensor]:
+            mask: torch.BoolTensor = None) -> Tuple[torch.FloatTensor]:
         """Processes matrices to output attention values and weights
 
         Args:
@@ -143,14 +146,14 @@ class KnowledgeAttention(nn.Module):
                 return self.tokenizer(x,
                                       truncation=True,
                                       padding='max_length',
-                                      return_tensors='pt')
+                                      return_tensors='pt').to(self.device)
             else:
                 tokenized = self.tokenizer(x,
                                            truncation=True,
                                            padding='max_length',
                                            return_tensors='pt')
                 emb = self.embedding(tokenized.input_ids.to(self.device))
-                mask = tokenized.attention_mask
+                mask = ~tokenized.attention_mask.to(torch.bool)
 
                 return {'src': emb.to(self.device), 'src_key_padding_mask': mask.to(self.device)}
 
@@ -208,11 +211,11 @@ class KnowledgeAttention(nn.Module):
         context_o, context_attn = self._process_attention_heads(
             context, qkv_context, self.n_context_heads, mask)
         event_o, event_attn = self._process_attention_heads(
-            event, qkv_event, self.n_event_heads, mask)
+            event, qkv_event, self.n_event_heads)
         mental_o, mental_attn = self._process_attention_heads(
-            mental, qkv_mental, self.n_mental_heads, mask)
+            mental, qkv_mental, self.n_mental_heads)
         moral_o, moral_attn = self._process_attention_heads(
-            moral, qkv_moral, self.n_moral_heads, mask)
+            moral, qkv_moral, self.n_moral_heads)
 
         # fix attention mask with regards to different sized input, might as well take attention masks from tokenizer for knowledge
 
@@ -414,8 +417,8 @@ class KnowledgeEncoderBlock(nn.TransformerEncoderLayer):
                                    src_mask, src_key_padding_mask)
             x = x + self._ff_block(self.norm2(x))
         else:
-            x = self.norm1(x + self._sa_block(x, knowledge_attn_head, src_mask,
-                                              src_key_padding_mask))
+            x = self.norm1(x + self._sa_block(x, knowledge_attn_head, attn_mask=src_mask,
+                                              key_padding_mask=src_key_padding_mask))
             x = self.norm2(x + self._ff_block(x))
 
         return x
@@ -444,37 +447,63 @@ class KnowledgeEncoderBlock(nn.TransformerEncoderLayer):
 
 class KnowledgeAttentionEncoder(nn.Module):
     def __init__(self,
-                 encoder_checkpoint: str = 'distilbert-base-uncased',
-                 freeze_encoder: bool = True,
+                 dmodel: int = 768,
+                 encoder_checkpoint: str = 't5-base',
+                 nlayers: int = 2,
+                 freeze_encoder: bool = False,
+                 finetune: bool = False,
+                 # set true if using t5 encoder model
+                 #finetune: bool = True,
                  device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         super(KnowledgeAttentionEncoder, self).__init__()
         self.device = device
-        self.encoder = AutoModel.from_pretrained(encoder_checkpoint)
+        self.finetune = finetune
+        self.nlayers = nlayers
+        self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
+        if finetune:
+            self.encoder = T5EncoderModel.from_pretrained(encoder_checkpoint)
+        else:
+            encoder_layer = nn.TransformerEncoderLayer(d_model=dmodel, 
+                    nhead=8,
+                    batch_first=True, 
+                    activation='gelu')
+            self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=4).to(self.device)
+            self.embedding = nn.Embedding(len(self.tokenizer), dmodel).to(self.device)
         if freeze_encoder:
             freeze_weights(self.encoder)
-        self.tokenizer = AutoTokenizer.from_pretrained(encoder_checkpoint)
         self.encoding_layers = nn.ModuleList(
-            [KnowledgeEncoderBlock(d_model=768, nhead=4) for _ in range(4)])
+            [KnowledgeEncoderBlock(d_model=dmodel, nhead=4) for _ in range(4)])
 
     def forward(self, x: Union[str, Tensor],
                 knowledge_attn_heads: Iterable[Tensor]) -> Tensor:
+        if self.finetune:
+            assert len(knowledge_attn_heads) == len(
+                self.encoding_layers
+            ), 'Number of attention encoding layers does not match number of knowledge attention heads'
+            if isinstance(x, str) or isinstance(x, List[str]):
+                encode = self.tokenizer(x,
+                                        truncation=True,
+                                        padding='max_length',
+                                        return_tensors='pt').to(self.device)
+                # encode = {k: v.to(self.device) for k, v in encode.items()}
+                x = self.encoder(**encode).last_hidden_state
+            elif isinstance(x, torch.FloatTensor):
+                x = self.encoder(inputs_embeds=x).last_hidden_state.to(self.device)
 
-        assert len(knowledge_attn_heads) == len(
-            self.encoding_layers
-        ), 'Number of attention encoding layers does not match number of knowledge attention heads'
-        if isinstance(x, str) or isinstance(x, List[str]):
-            encode = self.tokenizer(x,
-                                    truncation=True,
-                                    padding='max_length',
-                                    return_tensors='pt')
-            encode = {k: v.to(self.device) for k, v in encode.items()}
-            x = self.encoder(**encode).last_hidden_state
-        elif isinstance(x, torch.FloatTensor):
-            x = self.encoder(inputs_embeds=x).last_hidden_state.to(self.device)
-
-        for layer, knowledge_attn_head in zip(self.encoding_layers,
-                                              knowledge_attn_heads):
-            x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
+            for layer, knowledge_attn_head in zip(self.encoding_layers,
+                                                  knowledge_attn_heads):
+                x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
+        else:
+            tokenized = self.tokenizer(x, truncation=True, padding='max_length', return_tensors='pt').to(self.device)
+            input_ids = tokenized.input_ids
+            # 0 for attend, 1 for ignore
+            attention_mask = ~tokenized.attention_mask.to(torch.bool)
+            emb = self.embedding(input_ids)
+            x = self.encoder(emb, src_key_padding_mask=attention_mask)
+            for _ in range(self.nlayers):
+                for layer, knowledge_attn_head in zip(self.encoding_layers, knowledge_attn_heads):
+                    x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
+                            #src_key_padding_mask=attention_mask)
 
         return x
 

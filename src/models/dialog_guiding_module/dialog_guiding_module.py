@@ -136,12 +136,14 @@ class DialogGuidingModule(nn.Module):
         Returns:
             knowledge mappings
         """
-        ### EXPERIMENTAL: CAP MAX TOKENS TO 512
-        ntokens = len(query.split())
-        if ntokens > 450:
-            query = ' '.join(query.split()[:450])
+        #### EXPERIMENTAL: CAP MAX TOKENS TO 512
+        #### SOMETHING IS OFF HERE. FIX TO GET VALIDATION TO WORK.
+        ntokens = len(query.split(" "))
+        print(f'{len(query)} -> {ntokens} --- Current Context:{query}')
+        #if ntokens > 450:
+        #    query = ' '.join(query.split(" ")[:450])
 
-        ###
+        ####
 
         overlaps = retrieve_overlap(query)
         if overlaps is None:
@@ -205,7 +207,7 @@ class DialogGuidingModule(nn.Module):
         s = self._knowledge_lookup(string_repr)
         return self._prepare_relations(s)
 
-    def forward(self, x: Tensor, string_repr: str):
+    def forward(self, x: Tensor, string_repr: str, mask: Tensor = None):
         """Forward pass through `DialogGuidingModule`
 
         Args:
@@ -219,7 +221,8 @@ class DialogGuidingModule(nn.Module):
         knowledge = self.knowledge_attention(x,
                                              event=event,
                                              mental=mental,
-                                             moral=moral)
+                                             moral=moral,
+                                             mask=mask)
 
         moral_head = knowledge['moral']
         moral = self._produce_moral_encoding(string_repr,

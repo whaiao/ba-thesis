@@ -91,10 +91,10 @@ def init_from_checkpoint(
 ) -> Tuple[torch.nn.Module, torch.optim.Optimizer]:
     model = model
     optim = optimizer
-    checkpoint = torch.load(checkpoint)
+    checkpoint = torch.load(checkpoint, map_location='cpu')
 
-    model.load_state_dict(state_dict=checkpoint['model'])
-    optim.load_state_dict(state_dict=checkpoint['optim'])
+    model.load_state_dict(state_dict=checkpoint['model'], strict=False)
+    # optim.load_state_dict(state_dict=checkpoint['optim'])
     del checkpoint
     torch.cuda.empty_cache()
 
