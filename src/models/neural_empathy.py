@@ -194,7 +194,7 @@ class NeuralEmpathy(nn.Module):
             encoded_history = self.dialog_transformer(history, turn)
 
         # knowledge attention w/ atomic
-        knowledge_encoding = self.dialog_guiding_module(encoded_history, turn, 
+        knowledge_encoding, attention_mask = self.dialog_guiding_module(encoded_history, turn, 
                 # experimental
                 mask=~dec_in.attention_mask.to(torch.bool))
 
@@ -207,7 +207,7 @@ class NeuralEmpathy(nn.Module):
         else:
             next_utterance = knowledge_encoding
 
-        out = self.lm_head(inputs_embeds=knowledge_encoding,
+        out = self.lm_head(inputs_embeds=knowledge_encoding, attention_mask=attention_mask,
                            labels=next_utterance)
         return out
 

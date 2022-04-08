@@ -363,7 +363,7 @@ class Manager:
                     'validation/epoch_progess': i/len(self.data['validation'])})
                 eval_running_loss.append(validation_loss.item())
 
-            current_val_generation, val_metrics = self._predict_and_calculate_metrics(logits, sample, False)
+                current_val_generation, val_metrics = self._predict_and_calculate_metrics(logits, sample, train=False)
             print(
                     f'Epoch: {epoch}\tValidation Loss: {np.mean(eval_running_loss)}\tValidation Perplexity: {torch.exp(validation_loss)}\nCurrent Generation: {current_val_generation}'
                     )
@@ -389,25 +389,21 @@ def main():
     #mcfg.lm_checkpoint = 'benjaminbeilharz/t5-conditioned-next-turn'
 
     # trainer = Manager(cfg, mcfg, NeuralEmpathy, Adafactor, dataset)
-    trainer = Manager(cfg, mcfg, NeuralEmpathy, AdamW, dataset)
+    #trainer = Manager(cfg, mcfg, NeuralEmpathy, AdamW, dataset)
     checkpoint_path = 'checkpoints/models/'
     # bert knowledge encoder
     #checkpoint = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodercheckpoint_20-03-17.pt'
     #model_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodermodel_cfg_20-03-17'
     #train_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodertrain_cfg_20-03-17'
     # transformer knowledge encoder
-    #checkpoint = checkpoint_path + 'neural_empath_with_enc_deccheckpoint_21-03-07.pt'
-    #model_cfg = checkpoint_path + 'neural_empath_with_enc_decmodel_cfg_21-03-07'
-    #train_cfg = checkpoint_path + 'neural_empath_with_enc_dectrain_cfg_21-03-07'
-
-    #checkpoint = checkpoint_path + 'neural_empath_with_enc_deccheckpoint_24-03-04.pt'
-    #model_cfg = checkpoint_path + 'neural_empath_with_enc_decmodel_cfg_24-03-04'
-    #train_cfg = checkpoint_path + 'neural_empath_with_enc_dectrain_cfg_24-03-04'
+    checkpoint = checkpoint_path + 'neural_empath_with_enc_deccheckpoint_25-03-09.pt'
+    model_cfg = checkpoint_path + 'neural_empath_with_enc_decmodel_cfg_25-03-09'
+    train_cfg = checkpoint_path + 'neural_empath_with_enc_dectrain_cfg_25-03-09'
     #checkpoint = checkpoint_path + 'adafactor-enc-deccheckpoint_24-03-09.pt'
     #model_cfg = checkpoint_path + 'adafactor-enc-decmodel_cfg_24-03-09'
     #train_cfg = checkpoint_path + 'adafactor-enc-dectrain_cfg_24-03-09'
     #trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, Adafactor, dataset)
-    #trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
+    trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
     trainer.run()
 
     # trainer.inference_step('I have been in a car accident and now it\'s hard to go to university', 'I feel like the whole world just stopped', **gcfg)

@@ -139,7 +139,7 @@ class DialogGuidingModule(nn.Module):
         #### EXPERIMENTAL: CAP MAX TOKENS TO 512
         #### SOMETHING IS OFF HERE. FIX TO GET VALIDATION TO WORK.
         ntokens = len(query.split(" "))
-        print(f'{len(query)} -> {ntokens} --- Current Context:{query}')
+        print(f'{len(query)} -> {ntokens} --- Current Context: {query}\n')
         #if ntokens > 450:
         #    query = ' '.join(query.split(" ")[:450])
 
@@ -233,11 +233,11 @@ class DialogGuidingModule(nn.Module):
         next_turn_type = int(
             self._classify_next_turn_type(string_repr).cpu().detach().numpy())
         new_representation = self.templates[next_turn_type] + string_repr
-        encoded_knowledge = self.knowledge_encoder(new_representation,
+        encoded_knowledge, attention_mask = self.knowledge_encoder(new_representation,
                                                    list(knowledge.values()))
 
         out = self.projection_layer(encoded_knowledge)
-        return out
+        return out, attention_mask
 
 
 if __name__ == "__main__":

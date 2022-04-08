@@ -451,9 +451,9 @@ class KnowledgeAttentionEncoder(nn.Module):
                  encoder_checkpoint: str = 't5-base',
                  nlayers: int = 2,
                  freeze_encoder: bool = False,
-                 finetune: bool = False,
+                 #finetune: bool = False,
                  # set true if using t5 encoder model
-                 #finetune: bool = True,
+                 finetune: bool = True,
                  device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         super(KnowledgeAttentionEncoder, self).__init__()
         self.device = device
@@ -481,12 +481,13 @@ class KnowledgeAttentionEncoder(nn.Module):
                 self.encoding_layers
             ), 'Number of attention encoding layers does not match number of knowledge attention heads'
             if isinstance(x, str) or isinstance(x, List[str]):
-                encode = self.tokenizer(x,
+                tokenized = self.tokenizer(x,
                                         truncation=True,
                                         padding='max_length',
                                         return_tensors='pt').to(self.device)
                 # encode = {k: v.to(self.device) for k, v in encode.items()}
-                x = self.encoder(**encode).last_hidden_state
+                
+                x = self.encoder(**tokenized).last_hidden_state
             elif isinstance(x, torch.FloatTensor):
                 x = self.encoder(inputs_embeds=x).last_hidden_state.to(self.device)
 
@@ -505,7 +506,7 @@ class KnowledgeAttentionEncoder(nn.Module):
                     x = layer(src=x, knowledge_attn_head=knowledge_attn_head)
                             #src_key_padding_mask=attention_mask)
 
-        return x
+        return x, tokenized.attention_mask
 
 
 # testing area
