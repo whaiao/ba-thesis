@@ -174,8 +174,6 @@ class DialogGuidingModule(nn.Module):
             tails = list(filter(lambda x: isinstance(x, str), tails))
             return ' '.join((t for t in tails if t != 'none'))
 
-        # check if samples acutally have a sample
-
         for sample in samples:
             for entry in sample.values():
                 for k, v in entry.items():
@@ -203,8 +201,15 @@ class DialogGuidingModule(nn.Module):
         Args:
             string_repr - string representation of current input turn
         """
+        # for eval
+        with open('evaluation/retrieval.txt', 'wa+') as f:
+            f.write(f'Input Turn: {string_repr}\n')
+            f.write('=' * 80 + '\n')
+            s = self._knowledge_lookup(string_repr)
+            for sample in s:
+                for head in sample.keys():
+                    f.write(f'{head}\n')
 
-        s = self._knowledge_lookup(string_repr)
         return self._prepare_relations(s)
 
     def forward(self, x: Tensor, string_repr: str, mask: Tensor = None):
@@ -233,8 +238,10 @@ class DialogGuidingModule(nn.Module):
         next_turn_type = int(
             self._classify_next_turn_type(string_repr).cpu().detach().numpy())
         new_representation = self.templates[next_turn_type] + string_repr
+        with open('evaluation/turn.txt', 'wa+') as f:
+            f.write(f'{string_repr} -> {new_representation}\n')
         encoded_knowledge, attention_mask = self.knowledge_encoder(new_representation,
-                                                   list(knowledge.values()))
+                                                                   list(knowledge.values()))
 
         out = self.projection_layer(encoded_knowledge)
         return out, attention_mask

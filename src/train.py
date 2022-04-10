@@ -16,8 +16,6 @@ from torch import Tensor
 from torch.optim import Optimizer
 from torch import nn
 from torchmetrics import MetricCollection, BLEUScore
-from torchmetrics.text.bert import BERTScore
-import transformers
 from transformers import Adafactor, AdamW, get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
 import wandb
 
@@ -383,7 +381,7 @@ class Manager:
 def main():
     cfg = TrainingConfig()
     mcfg = ModelConfig()
-    #gcfg = GenerationConfig().__dict__
+    gcfg = GenerationConfig().__dict__
     #print('Config: ', gcfg)
     dataset = load_dataset('benjaminbeilharz/ed-for-lm')
     #mcfg.lm_checkpoint = 'benjaminbeilharz/t5-conditioned-next-turn'
@@ -393,20 +391,22 @@ def main():
     checkpoint_path = 'checkpoints/models/'
     # bert knowledge encoder
     #checkpoint = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodercheckpoint_20-03-17.pt'
-    #model_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodermodel_cfg_20-03-17'
-    #train_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodertrain_cfg_20-03-17'
+    # model_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodermodel_cfg_20-03-17'
+    # train_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodertrain_cfg_20-03-17'
     # transformer knowledge encoder
     checkpoint = checkpoint_path + 'neural_empath_with_enc_deccheckpoint_25-03-09.pt'
     model_cfg = checkpoint_path + 'neural_empath_with_enc_decmodel_cfg_25-03-09'
     train_cfg = checkpoint_path + 'neural_empath_with_enc_dectrain_cfg_25-03-09'
-    #checkpoint = checkpoint_path + 'adafactor-enc-deccheckpoint_24-03-09.pt'
-    #model_cfg = checkpoint_path + 'adafactor-enc-decmodel_cfg_24-03-09'
-    #train_cfg = checkpoint_path + 'adafactor-enc-dectrain_cfg_24-03-09'
-    #trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, Adafactor, dataset)
+    # checkpoint = checkpoint_path + 'adafactor-enc-deccheckpoint_24-03-09.pt'
+    # model_cfg = checkpoint_path + 'adafactor-enc-decmodel_cfg_24-03-09'
+    # train_cfg = checkpoint_path + 'adafactor-enc-dectrain_cfg_24-03-09'
+    # trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, Adafactor, dataset)
+
+    # EVAL:
+    test_data = load_dataset('benjaminbeilharz/ed-for-lm', split='test')
     trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
-    trainer.run()
-
-    # trainer.inference_step('I have been in a car accident and now it\'s hard to go to university', 'I feel like the whole world just stopped', **gcfg)
-
+    for sample in test_data:
+        history, current, _ = sample
+        trainer.inference_step(dialog_history=history, current_utterance=current, **gcfg)
 
 main()
