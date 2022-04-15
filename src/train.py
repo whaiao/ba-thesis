@@ -3,7 +3,7 @@ from datetime import datetime
 import pickle
 from pprint import pprint
 from re import sub
-from typing import Callable, Iterable, Iterator, List, Mapping, Tuple, Union
+from typing import Callable, Iterable, List, Mapping, Tuple, Union
 
 from accelerate import Accelerator
 from datasets import load_dataset, load_metric
@@ -16,6 +16,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 from torch import nn
 from torchmetrics import MetricCollection, BLEUScore
+from torchmetrics.text.bert import BERTScore
 from transformers import Adafactor, AdamW, get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
 import wandb
 
@@ -31,11 +32,13 @@ class TrainingConfig:
     betas: Iterable[float] = None
     gradient_accumulation: bool = True
     report_every: int = 10
-    unfreezing_modules: List[str] = field(default_factory=lambda: ['dialog_guiding_module'])
+    unfreezing_modules: List[str] = field(
+        default_factory=lambda: ['dialog_guiding_module'])
     unfreeze_every: int = 1
     warmup_steps: int = 0
     scheduler: Callable = get_linear_schedule_with_warmup
     save_to: str = 'checkpoints/models/tdec_fixed'
+
 
 @dataclass
 class GenerationConfig:
@@ -47,12 +50,16 @@ class GenerationConfig:
     early_stopping: bool = True
 
 
-
 class Manager:
     """Manager class handles training, validation and testing"""
-    def __init__(self, cfg: TrainingConfig, model_cfg: ModelConfig,
-            model: nn.Module, optimizer: Optimizer,
-            data: DatasetDict, _pretrained: bool = False):
+    def __init__(self,
+                 cfg: TrainingConfig,
+                 model_cfg: ModelConfig,
+                 model: nn.Module,
+                 optimizer: Optimizer,
+                 data: DatasetDict,
+                 _pretrained: bool = False,
+                 do_eval: bool = False):
         """Initializes Manager
 
         Args:
@@ -67,31 +74,35 @@ class Manager:
         self.device = self.accelerator.device
         self.cfg = cfg
         self.model_cfg = model_cfg
+        self.do_eval = do_eval
         if _pretrained:
             self.model = model
             self.optimizer = optimizer
         else:
             self.model = model(model_cfg).to(self.device)
             if optimizer.__name__ == 'Adafactor':
-                self.optimizer = optimizer(self.model.parameters(),
-                            lr=1e-3,
-                            eps=(1e-30, 1e-3),
-                            clip_threshold=1.0,
-                            decay_rate=-0.8,
-                            beta1=None,
-                            weight_decay=0.0,
-                            relative_step=False,
-                            scale_parameter=False,
-                            warmup_init=False,
-                            )
+                self.optimizer = optimizer(
+                    self.model.parameters(),
+                    lr=1e-3,
+                    eps=(1e-30, 1e-3),
+                    clip_threshold=1.0,
+                    decay_rate=-0.8,
+                    beta1=None,
+                    weight_decay=0.0,
+                    relative_step=False,
+                    scale_parameter=False,
+                    warmup_init=False,
+                )
             else:
                 self.optimizer = optimizer(self.model.parameters(),
-                        lr=self.cfg.learning_rate)
+                                           lr=self.cfg.learning_rate)
 
         self.model.cuda()
         self.data = data
 
-        self.model, self.optimizer, self.data['train'] = self.accelerator.prepare(self.model, self.optimizer, self.data['train'])
+        self.model, self.optimizer, self.data[
+            'train'] = self.accelerator.prepare(self.model, self.optimizer,
+                                                self.data['train'])
 
         total_training_steps = len(data['train']) * self.cfg.epochs
         self.scheduler = self.cfg.scheduler(
@@ -109,10 +120,18 @@ class Manager:
         self.train_metrics = metrics.clone(prefix='train/')
         self.valid_metrics = metrics.clone(prefix='validation/')
 
+        if self.do_eval:
+            # import bert score and meteor
+            self.bleu = load_metric('bleu')
+            self.meteor = load_metric('meteor')
+            self.bertscore = BERTScore('bertscore')
+
         config_dict = self.cfg.__dict__.update(self.model_cfg.__dict__)
         pprint(config_dict)
 
-        wandb.init(entity='benjaminbeilharz', project='ba-thesis', config=config_dict)
+        wandb.init(entity='benjaminbeilharz',
+                   project='ba-thesis',
+                   config=config_dict)
         wandb.watch(self.model)
 
     @classmethod
@@ -122,7 +141,8 @@ class Manager:
                          checkpoint_path: str = None,
                          model: nn.Module = None,
                          optimizer: Optimizer = None,
-                         data: DatasetDict = None):
+                         data: DatasetDict = None,
+                         do_eval: bool = True):
         """Creates Manager class based on existing checkpoints and configurations
 
         Args:
@@ -141,26 +161,33 @@ class Manager:
 
         model = model(cfg)
         if optimizer.__name__ == 'Adafactor':
-            optimizer = optimizer(model.parameters(),
-                        lr=1e-3,
-                        eps=(1e-30, 1e-3),
-                        clip_threshold=1.0,
-                        decay_rate=-0.8,
-                        beta1=None,
-                        weight_decay=0.0,
-                        relative_step=False,
-                        scale_parameter=False,
-                        warmup_init=False,
-                        )
+            optimizer = optimizer(
+                model.parameters(),
+                lr=1e-3,
+                eps=(1e-30, 1e-3),
+                clip_threshold=1.0,
+                decay_rate=-0.8,
+                beta1=None,
+                weight_decay=0.0,
+                relative_step=False,
+                scale_parameter=False,
+                warmup_init=False,
+            )
         else:
             optimizer = optimizer(model.parameters(), lr=cfg.learning_rate)
 
         # loading model checkpoint
-        model, optimizer = init_from_checkpoint(checkpoint_path, model, optimizer)
+        model, optimizer = init_from_checkpoint(checkpoint_path, model,
+                                                optimizer)
 
         print('Successfully loaded config file')
-        return cls(cfg=cfg, model_cfg=mcfg, model=model, optimizer=optimizer, data=data, _pretrained=True)
-
+        return cls(cfg=cfg,
+                   model_cfg=mcfg,
+                   model=model,
+                   optimizer=optimizer,
+                   data=data,
+                   _pretrained=True,
+                   do_eval=do_eval)
 
     def _save_config(self, save_to: str):
         """Saves current config with a timestamp
@@ -208,7 +235,8 @@ class Manager:
         """
         target = target['next']
         preds = torch.argmax(logits, dim=-1)
-        generated = self.model.lm_tokenizer.decode(preds[0], skip_special_tokens=True)
+        generated = self.model.lm_tokenizer.decode(preds[0],
+                                                   skip_special_tokens=True)
         postprocessed = sub('\s+', ' ', generated)
 
         if train:
@@ -302,8 +330,11 @@ class Manager:
             logits = out.logits
             return logits, loss
 
-
-    def inference_step(self, dialog_history: str, current_utterance: str, **generation_settings) -> str:
+    def inference_step(self,
+                       dialog_history: str,
+                       current_utterance: str,
+                       response: str = None,
+                       **generation_settings) -> Union[str, List[str]]:
         """Inference
 
         Args:
@@ -317,11 +348,47 @@ class Manager:
         self.model.eval()
         with torch.no_grad():
             if generation_settings is not None:
-                out = self.model.inference(dialog_history, current_utterance, **generation_settings)
+                out = self.model.inference(dialog_history, current_utterance,
+                                           **generation_settings)
             else:
                 out = self.model.inference(dialog_history, current_utterance)
-        return out
 
+        if self.do_eval:
+
+            def _prepare_eval(
+                generation: Union[str, List[str]], response: str
+            ) -> Mapping[str, Union[List[str], List[List[str]]]]:
+                gens = [gen.split() for gen in generation]
+                return {
+                    'predictions': gens,
+                    'references':
+                    [[response.split()] for _ in range(len(gens))]
+                }
+
+            self.bleu.add_batch(**_prepare_eval(out, response))
+            self.meteor.add_batch(**_prepare_eval(out, response))
+            self.bertscore.add_batch(**_prepare_eval(out, response))
+
+            bleu = self.bleu.compute()
+            meteor = self.meteor.compute()
+            bertscore = self.bertscore.compute(lang='en')
+
+            metric_dict = {
+                'bleu1': bleu['precisions'][0],
+                'bleu2': bleu['precisions'][1],
+                'bleu3': bleu['precisions'][2],
+                'bleu4': bleu['precisions'][-1],
+                'bleu': bleu['bleu'],
+                'meteor': meteor['meteor'],
+                'bertscore-prec': bertscore['precision'],
+                'bertscore-recall': bertscore['recall'],
+                'bertscore-f1': bertscore['f1']
+            }
+            pprint(metric_dict)
+
+            wandb.log(metric_dict)
+
+        return out
 
     def run(self):
         """Runs a complete cycle of epochs, training and validation"""
@@ -332,16 +399,18 @@ class Manager:
                 logits, loss = self.training_step(sample)
                 perplexity = torch.exp(loss)
                 log_key = 'train/loss'
-                wandb.log({log_key: loss.item(),
+                wandb.log({
+                    log_key: loss.item(),
                     'train/perplexity': perplexity,
-                    'train/epoch_progress': i/len(self.data['train'])})
+                    'train/epoch_progress': i / len(self.data['train'])
+                })
                 train_running_loss.append(loss.item())
 
                 current_generation, metrics = self._predict_and_calculate_metrics(
                     logits, sample)
 
                 print(
-                        f'Epoch: {epoch}\tTraining Loss: {np.mean(train_running_loss)}\tPerplexity: {perplexity}\nCurrent Generation: {current_generation}'
+                    f'Epoch: {epoch}\tTraining Loss: {np.mean(train_running_loss)}\tPerplexity: {perplexity}\nCurrent Generation: {current_generation}'
                 )
                 if i % 10000 == 0:
                     self._save_config(self.cfg.save_to)
@@ -350,21 +419,29 @@ class Manager:
             print(
                 f'Finished Epoch: {epoch}\t Average Training Loss: {np.mean(train_running_loss)}'
             )
-            print(f'Saving Model with Average Training Loss {np.mean(train_running_loss)}')
+            print(
+                f'Saving Model with Average Training Loss {np.mean(train_running_loss)}'
+            )
 
             eval_running_loss = []
             for i, sample in enumerate(tqdm(self.data['validation']), start=1):
                 logits, validation_loss = self.validation_step(sample)
                 perplexity = torch.exp(validation_loss)
-                wandb.log({'validation/loss': validation_loss.item(),
-                    'validation/perplexity': perplexity,
-                    'validation/epoch_progess': i/len(self.data['validation'])})
+                wandb.log({
+                    'validation/loss':
+                    validation_loss.item(),
+                    'validation/perplexity':
+                    perplexity,
+                    'validation/epoch_progess':
+                    i / len(self.data['validation'])
+                })
                 eval_running_loss.append(validation_loss.item())
 
-                current_val_generation, val_metrics = self._predict_and_calculate_metrics(logits, sample, train=False)
+                current_val_generation, val_metrics = self._predict_and_calculate_metrics(
+                    logits, sample, train=False)
             print(
-                    f'Epoch: {epoch}\tValidation Loss: {np.mean(eval_running_loss)}\tValidation Perplexity: {torch.exp(validation_loss)}\nCurrent Generation: {current_val_generation}'
-                    )
+                f'Epoch: {epoch}\tValidation Loss: {np.mean(eval_running_loss)}\tValidation Perplexity: {torch.exp(validation_loss)}\nCurrent Generation: {current_val_generation}'
+            )
 
             avg_eval_loss = np.mean(eval_running_loss)
             if best_checkpoint is None or avg_eval_loss < best_checkpoint:
@@ -372,7 +449,7 @@ class Manager:
                 # add metrics
                 print('Saving model checkpoint with metrics:')
                 self._save_config(self.cfg.save_to)
-                for k,v in val_metrics.items():
+                for k, v in val_metrics.items():
                     print(f'{k}:\t{v}')
                     print(f'Avg Eval Loss:\t{avg_eval_loss}')
                 self._save_checkpoint(self.cfg.save_to)
@@ -404,9 +481,15 @@ def main():
 
     # EVAL:
     test_data = load_dataset('benjaminbeilharz/ed-for-lm', split='test')
-    trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, AdamW, dataset)
+    trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint,
+                                       NeuralEmpathy, AdamW, dataset)
+    trainer.do_eval = True
     for sample in test_data:
-        history, current, _ = sample
-        trainer.inference_step(dialog_history=history, current_utterance=current, **gcfg)
+        history, current, response = sample
+        trainer.inference_step(dialog_history=history,
+                               current_utterance=current,
+                               response=response,
+                               **gcfg)
+
 
 main()

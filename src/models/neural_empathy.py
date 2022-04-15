@@ -123,7 +123,7 @@ class NeuralEmpathy(nn.Module):
         labels[labels == self.lm_tokenizer.pad_token_id] = -100
         return labels.to(self.cfg.device)
 
-    def inference(self, history: str, turn: str, **generation_settings) -> Iterable[Tensor]:
+    def inference(self, history: str, turn: str, **generation_settings) -> Iterable[str]:
         """Inference step to generate a response
 
         Args:
@@ -160,17 +160,19 @@ class NeuralEmpathy(nn.Module):
         else:
             outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens, **generation_settings)
 
+        generations = [self.lm_tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+
         with open('evaluation/dialog.txt', 'wa+') as f:
             print("Output:\n" + 100 * '-')
             f.write('=' * 80 + '\n')
             f.write(f'Current Dialog History: {history}\n')
             f.write(f'Current Utterance: {turn}\n')
             f.write('-' * 80 + '\n')
-            for i, output in enumerate(outputs):
-                print("{}: {}".format(i, self.lm_tokenizer.decode(output, skip_special_tokens=True)))
-                f.write(f'Generation {i}: {self.lm_tokenizer.decode(output, skip_special_tokens=True)}\n')
+            for i, output in enumerate(generations):
+                print("{}: {}".format(i, output)))
+                f.write(f'Generation {i}: {output}\n')
 
-        return outputs
+        return generations
 
 
     def forward(self, history: str, turn: str, nxt: str) -> Seq2SeqLMOutput:

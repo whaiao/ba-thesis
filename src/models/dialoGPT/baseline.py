@@ -20,7 +20,6 @@ def tokenize_fn(batch):
     return tokenizer(dialog, return_tensors='pt', truncation=True,
                      padding='max_length')
 
-
 def compute_metrics(pred):
     metric = load_metric('accuracy', 'perplexity')
     logits, labels = pred
