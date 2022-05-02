@@ -11,9 +11,9 @@ from spacy import displacy
 from spacy.tokens.doc import Doc
 from spacy.tokens.token import Token
 
-from src.constants import DATA_ROOT
-from src.utils import sorted_dict, freeze_weights
-from src.data.save import to_pickle
+from src_old.constants import DATA_ROOT
+from src_old.utils import sorted_dict, freeze_weights
+from src_old.data.save import to_pickle
 
 # dtypes and constants
 try:

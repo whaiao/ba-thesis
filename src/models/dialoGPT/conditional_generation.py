@@ -8,7 +8,7 @@ import wandb
 from tqdm import tqdm
 from transformers import AutoTokenizer, GPT2LMHeadModel, Trainer, TrainingArguments, DataCollatorWithPadding
 
-from src.models.bert.data import create_next_turn_prediction_dataset
+from src_old.models.bert.data import create_next_turn_prediction_dataset
 
 wandb.init(project='ba-thesis', entity='benjaminbeilharz')
 

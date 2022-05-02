@@ -1,5 +1,7 @@
+from pprint import pprint
+
 from datasets import load_dataset, load_metric
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, TrainingArguments, Trainer, DataCollatorForLanguageModeling
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, TrainingArguments, Trainer, DataCollatorWithPadding
 from numpy import argmax
 import wandb
 
@@ -9,7 +11,7 @@ epochs = 5.
 data = load_dataset('benjaminbeilharz/empathetic_dialogues_for_lm')
 model = GPT2LMHeadModel.from_pretrained(checkpoint)
 tokenizer = GPT2Tokenizer.from_pretrained(checkpoint)
-data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer)
+data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 tokenizer.pad_token = tokenizer.eos_token
 wandb.init(project='ba-thesis', entity='benjaminbeilharz')
 
@@ -35,20 +37,19 @@ def compute_metrics(pred):
         metric_dict.update(
             metric.compute(predictions=predictions, references=labels))
 
-    return metric_dict
+    pprint(metric_dict)
+    #return metric_dict
+    return meteor.compute(predictions=predictions, references=labels)
 
 
-data = data.map(tokenize_fn, batched=True).remove_columns('conv')
+data = data.map(tokenize_fn, batched=False).remove_columns('conv')
 
 args = TrainingArguments(
     'checkpoints/baseline',
     num_train_epochs=epochs,
-    save_strategy='epoch',
-    evaluation_strategy='epoch',
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
-    gradient_accumulation_steps=3,
-    #gradient_checkpointing=True,
+    per_device_eval_batch_size=1,
+    eval_accumulation_steps=10,
+    logging_steps=1,
     fp16=True,
     report_to='wandb')
 trainer = Trainer(model,
@@ -60,4 +61,4 @@ trainer = Trainer(model,
                   compute_metrics=compute_metrics)
 
 if __name__ == '__main__':
-    trainer.evaluate()
+    trainer.predict(data['test'])

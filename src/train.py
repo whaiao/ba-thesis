@@ -20,8 +20,8 @@ from torchmetrics.text.bert import BERTScore
 from transformers import Adafactor, AdamW, get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
 import wandb
 
-from src.models.neural_empathy import NeuralEmpathy, ModelConfig
-from src.utils import init_from_checkpoint
+from src_old.models.neural_empathy import NeuralEmpathy, ModelConfig
+from src_old.utils import init_from_checkpoint
 
 
 @dataclass
@@ -43,11 +43,15 @@ class TrainingConfig:
 @dataclass
 class GenerationConfig:
     """Generation Configuration for LM Generation"""
-    num_beams: int = 10
-    max_length: int = 200
+    #num_beams: int = 10
+    #min_length: int = 10
+    #max_length: int = 200
+    do_sample: bool = True
+    top_k: int = 50
+    top_p: float = .95
     no_repeat_ngram_size: int = 2
-    num_return_sequences: int = 5
-    early_stopping: bool = True
+    num_return_sequences: int = 10
+    #early_stopping: bool = True
 
 
 class Manager:
@@ -124,7 +128,7 @@ class Manager:
             # import bert score and meteor
             self.bleu = load_metric('bleu')
             self.meteor = load_metric('meteor')
-            self.bertscore = BERTScore('bertscore')
+            self.bertscore = load_metric('bertscore')
 
         config_dict = self.cfg.__dict__.update(self.model_cfg.__dict__)
         pprint(config_dict)
@@ -380,9 +384,9 @@ class Manager:
                 'bleu4': bleu['precisions'][-1],
                 'bleu': bleu['bleu'],
                 'meteor': meteor['meteor'],
-                'bertscore-prec': bertscore['precision'],
-                'bertscore-recall': bertscore['recall'],
-                'bertscore-f1': bertscore['f1']
+                'bertscore-prec': sum(bertscore['precision']) / len(bertscore['precision']),
+                'bertscore-recall': sum(bertscore['recall']) / len(bertscore['recall']),
+                'bertscore-f1': sum(bertscore['f1']) / len(bertscore['f1'])
             }
             pprint(metric_dict)
 
@@ -471,21 +475,22 @@ def main():
     # model_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodermodel_cfg_20-03-17'
     # train_cfg = checkpoint_path + 'adamw-enc-dec-bert-knowledgeencodertrain_cfg_20-03-17'
     # transformer knowledge encoder
-    checkpoint = checkpoint_path + 'neural_empath_with_enc_deccheckpoint_25-03-09.pt'
-    model_cfg = checkpoint_path + 'neural_empath_with_enc_decmodel_cfg_25-03-09'
-    train_cfg = checkpoint_path + 'neural_empath_with_enc_dectrain_cfg_25-03-09'
-    # checkpoint = checkpoint_path + 'adafactor-enc-deccheckpoint_24-03-09.pt'
-    # model_cfg = checkpoint_path + 'adafactor-enc-decmodel_cfg_24-03-09'
-    # train_cfg = checkpoint_path + 'adafactor-enc-dectrain_cfg_24-03-09'
+    #checkpoint = checkpoint_path + 'neural_empath_with_enc_deccheckpoint_08-04-18.pt'
+    #model_cfg = checkpoint_path + 'neural_empath_with_enc_decmodel_cfg_08-04-18'
+    #train_cfg = checkpoint_path + 'neural_empath_with_enc_dectrain_cfg_08-04-18'
+    checkpoint = checkpoint_path + 'tdec_fixedcheckpoint_08-04-09.pt'
+    model_cfg = checkpoint_path + 'tdec_fixedmodel_cfg_08-04-09'
+    train_cfg = checkpoint_path + 'tdec_fixedtrain_cfg_08-04-09'
     # trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint, NeuralEmpathy, Adafactor, dataset)
 
     # EVAL:
     test_data = load_dataset('benjaminbeilharz/ed-for-lm', split='test')
     trainer = Manager.load_from_config(train_cfg, model_cfg, checkpoint,
                                        NeuralEmpathy, AdamW, dataset)
-    trainer.do_eval = True
     for sample in test_data:
-        history, current, response = sample
+        history = sample['history']
+        current = sample['current']
+        response = sample['next']
         trainer.inference_step(dialog_history=history,
                                current_utterance=current,
                                response=response,

@@ -2,8 +2,8 @@ import pickle
 from typing import List
 
 from tqdm.std import tqdm
-from src.constants import DATA_ROOT
-from src.utils import read_tsv
+from src_old.constants import DATA_ROOT
+from src_old.utils import read_tsv
 import pandas as pd
 
 Dataframe = pd.DataFrame
@@ -64,7 +64,7 @@ def parse(soc_chem: Dataframe,
 
     # load and destroy on-demand
     if parse_type == 'srl':
-        from src.nlp import srl
+        from src_old.nlp import srl
         fn = srl
         del srl
     elif parse_type == 'dp':

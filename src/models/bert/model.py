@@ -5,7 +5,7 @@ import numpy as np
 from datasets import load_metric
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, Trainer, TrainingArguments
 
-from src.models.bert.data import create_datasets
+from src_old.models.bert.data import create_datasets
 
 checkpoint = argv[-1]
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)

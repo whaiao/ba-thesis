@@ -4,7 +4,7 @@ from datasets import load_metric
 from numpy import argmax
 from transformers import AutoModelWithLMHead, PreTrainedModel, AutoTokenizer, TrainingArguments, Trainer, DataCollatorForLanguageModeling
 
-from src.models.dialoGPT.data import DialoGPTDataset
+from src_old.models.dialoGPT.data import DialoGPTDataset
 
 CHECKPOINT = f'microsoft/dialoGPT-{argv[-1]}'
 

@@ -1,6 +1,6 @@
 """Atomic Processing Utils"""
 
-from src.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
+from src_old.constants import DATA_ROOT, PNAME_PLACEHOLDER_RE, PNAME_SUB
 
 from collections import defaultdict, Counter
 from functools import partial
@@ -209,11 +209,11 @@ def parse(atomic: Dataframe,
     assert col in atomic.columns
 
     if parse_type == 'srl':
-        from src.nlp import srl
+        from src_old.nlp import srl
         fn = srl
         del srl
     elif parse_type == 'dp':
-        from src.nlp import dependency_parse as dp
+        from src_old.nlp import dependency_parse as dp
         fn = dp
         del dp
 

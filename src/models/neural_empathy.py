@@ -8,9 +8,9 @@ from torch import nn
 from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration, EncoderDecoderModel, GPT2LMHeadModel
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
-from src.models.dialog_guiding_module.dialog_guiding_module import DialogGuidingModule
-from src.models.dialog_transformer import DialogTransformer
-from src.utils import freeze_weights
+from src_old.models.dialog_guiding_module.dialog_guiding_module import DialogGuidingModule
+from src_old.models.dialog_transformer import DialogTransformer
+from src_old.utils import freeze_weights
 
 
 @dataclass
@@ -151,25 +151,25 @@ class NeuralEmpathy(nn.Module):
             encoded_history = self.dialog_transformer(history, turn)
 
         # knowledge attention w/ atomic
-        knowledge_encoding = self.dialog_guiding_module(encoded_history, turn)
+        knowledge_encoding, attention_mask = self.dialog_guiding_module(encoded_history, turn)
         knowledge_encoding2tokens = torch.argmax(knowledge_encoding, dim=-1)
 
         # if settings are not supplied, use default arguments to generate
         if generation_settings is None:
-            outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens)
+            outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens, attention_mask=attention_mask)
         else:
-            outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens, **generation_settings)
+            outputs = self.lm_head.generate(input_ids=knowledge_encoding2tokens, attention_mask=attention_mask, **generation_settings)
 
         generations = [self.lm_tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
 
-        with open('evaluation/dialog.txt', 'wa+') as f:
+        with open('evaluation/dialog.txt', 'a+') as f:
             print("Output:\n" + 100 * '-')
             f.write('=' * 80 + '\n')
             f.write(f'Current Dialog History: {history}\n')
             f.write(f'Current Utterance: {turn}\n')
             f.write('-' * 80 + '\n')
             for i, output in enumerate(generations):
-                print("{}: {}".format(i, output)))
+                print("{}: {}".format(i, output))
                 f.write(f'Generation {i}: {output}\n')
 
         return generations

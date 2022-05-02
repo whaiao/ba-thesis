@@ -10,7 +10,7 @@ from torch import nn
 from torch.nn import functional as F
 from transformers import AutoModel, T5EncoderModel, T5ForConditionalGeneration, AutoTokenizer
 
-from src.utils import freeze_weights
+from src_old.utils import freeze_weights
 
 
 class KnowledgeAttention(nn.Module):
@@ -23,8 +23,8 @@ class KnowledgeAttention(nn.Module):
                  dropout: float = .1,
                  hf_checkpoint: str = 'distilbert-base-uncased',
                  # set false with earlier pretraining model
-                 use_pretrained: bool = False,
-                 #use_pretrained: bool = True,
+                 #use_pretrained: bool = False,
+                 use_pretrained: bool = True,
                  share_weights: bool = False,
                  device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         """Knowledge Attention Module incooperating external knowledge
@@ -155,7 +155,7 @@ class KnowledgeAttention(nn.Module):
                 emb = self.embedding(tokenized.input_ids.to(self.device))
                 mask = ~tokenized.attention_mask.to(torch.bool)
 
-                return {'src': emb.to(self.device), 'src_key_padding_mask': mask.to(self.device)}
+                return {'src_old': emb.to(self.device), 'src_key_padding_mask': mask.to(self.device)}
 
         if self.use_pretrained:
             event = self.encoder(**encode(event)).last_hidden_state
@@ -403,9 +403,9 @@ class KnowledgeEncoderBlock(nn.TransformerEncoderLayer):
                 src_key_padding_mask: Optional[Tensor] = None) -> Tensor:
         """Forward Layer for Knowledge Self Attention
         Args:
-            src - source tensor
+            src_old - source tensor
             knowledge_attn_head - knowledge attention to use in self attention
-            src_mask - mask for src tensor
+            src_mask - mask for src_old tensor
             src_key_padding_mask - key padding mask
 
         Returns:

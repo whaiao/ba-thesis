@@ -8,11 +8,11 @@ from torch import Tensor
 from torch import nn
 from transformers import AutoTokenizer, AutoModelWithLMHead, T5ForConditionalGeneration, AutoModelForSequenceClassification
 
-from src.constants import T5_TURN_TEMPLATES
-from src.knowledge_extraction import extract_from_atomic, retrieve_overlap
-from src.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
-from src.models.dialog_transformer import DialogTransformer
-from src.utils import freeze_weights
+from src_old.constants import T5_TURN_TEMPLATES
+from src_old.knowledge_extraction import extract_from_atomic, retrieve_overlap
+from src_old.models.dialog_guiding_module.knowledge_transformer import KnowledgeAttention, KnowledgeAttentionEncoder
+from src_old.models.dialog_transformer import DialogTransformer
+from src_old.utils import freeze_weights
 
 
 class DialogGuidingModule(nn.Module):
@@ -20,7 +20,7 @@ class DialogGuidingModule(nn.Module):
                  d_model: int = 768,
                  output_dimensions: int = 512,
                  soc_chem_checkpoint:
-                 str = 'src/models/social-chemistry-101/rot_checkpoint',
+                 str = 'src_old/models/social-chemistry-101/rot_checkpoint',
                  hf_checkpoint: str = 'distilbert-base-uncased',
                  device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')):
         """DialogGuidingModule which extracts knowledge from Atomic, predicts next turn type
@@ -202,13 +202,14 @@ class DialogGuidingModule(nn.Module):
             string_repr - string representation of current input turn
         """
         # for eval
-        with open('evaluation/retrieval.txt', 'wa+') as f:
+        with open('evaluation/retrieval.txt', 'a+') as f:
             f.write(f'Input Turn: {string_repr}\n')
             f.write('=' * 80 + '\n')
             s = self._knowledge_lookup(string_repr)
-            for sample in s:
-                for head in sample.keys():
-                    f.write(f'{head}\n')
+            if s is not None:
+                for sample in s:
+                    for head in sample.keys():
+                        f.write(f'{head}\n')
 
         return self._prepare_relations(s)
 
@@ -238,7 +239,7 @@ class DialogGuidingModule(nn.Module):
         next_turn_type = int(
             self._classify_next_turn_type(string_repr).cpu().detach().numpy())
         new_representation = self.templates[next_turn_type] + string_repr
-        with open('evaluation/turn.txt', 'wa+') as f:
+        with open('evaluation/turn.txt', 'a+') as f:
             f.write(f'{string_repr} -> {new_representation}\n')
         encoded_knowledge, attention_mask = self.knowledge_encoder(new_representation,
                                                                    list(knowledge.values()))

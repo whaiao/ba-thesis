@@ -24,7 +24,7 @@ import datasets
 from datasets import load_dataset
 from datasets.dataset_dict import DatasetDict
 
-from src.features import empathetic_dialogues_emotion_binning
+from src_old.features import empathetic_dialogues_emotion_binning
 
 HuggingfaceDataset = DatasetDict
 checkpoint = 'roberta-large'

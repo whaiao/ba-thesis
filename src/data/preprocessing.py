@@ -10,7 +10,7 @@ from typing import Tuple, List, Mapping
 
 import pandas as pd
 
-from src.data.reader import read_jsonlines
+from src_old.data.reader import read_jsonlines
 
 glob = partial(glob, recursive=True)
 

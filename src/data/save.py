@@ -8,7 +8,7 @@ from pickle import dump
 import pandas as pd
 from tqdm import tqdm
 
-from src.data.reader import read_jsonlines, read_csv
+from src_old.data.reader import read_jsonlines, read_csv
 
 
 def jsonl2tsv(datapath: str = 'data/', saveto: str = 'data/processed/'):

@@ -1,7 +1,7 @@
 from absl import flags, logging
-from src import train
-from src.models.neural_empathy import ModelConfig
-from src.train import TrainingConfig, GenerationConfig
+from src_old import train
+from src_old.models.neural_empathy import ModelConfig
+from src_old.train import TrainingConfig, GenerationConfig
 
 
 def main(_):

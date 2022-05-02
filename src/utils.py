@@ -91,9 +91,9 @@ def init_from_checkpoint(
 ) -> Tuple[torch.nn.Module, torch.optim.Optimizer]:
     model = model
     optim = optimizer
-    new_w = model.dialog_guiding_module.knowledge_attention.embedding.weight
+    # new_w = model.dialog_guiding_module.knowledge_attention.embedding.weight
     checkpoint = torch.load(checkpoint, map_location='cpu')
-    checkpoint['model']['dialog_guiding_module.knowledge_attention.embedding.weight'] = new_w
+    #checkpoint['model']['dialog_guiding_module.knowledge_attention.embedding.weight'] = new_w
 
     model.load_state_dict(state_dict=checkpoint['model'], strict=False)
     # optim.load_state_dict(state_dict=checkpoint['optim'])

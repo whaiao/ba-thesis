@@ -4,12 +4,12 @@ import haiku as hk
 import jax
 import optax as O
 
-from src.jax_playground.loss import lm_with_mask_loss_fn
-from src.jax_playground.train import JAXTrainer
-from src.jax_playground.transformer import build_transformer_forward_fn
+from src_old.jax_playground.loss import lm_with_mask_loss_fn
+from src_old.jax_playground.train import JAXTrainer
+from src_old.jax_playground.transformer import build_transformer_forward_fn
 
 
-# from src.utils import get_config
+# from src_old.utils import get_config
 
 # TODO: Read yaml config here
 # cfg = get_config(None)
