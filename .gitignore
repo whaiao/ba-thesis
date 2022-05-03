@@ -140,6 +140,6 @@ cython_debug/
 # pycharm
 .idea/
 .DS_Store
-src/models/social-chemistry-101/
+src_old/models/social-chemistry-101/
 wandb/*
 *.swp
